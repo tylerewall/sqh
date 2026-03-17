@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Query Hub</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="screen-login" class="screen">
+  <div class="login-box">
+    <div class="text-center">
+      <svg class="login-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 2L3 7v6c0 5.25 3.75 10.13 9 11.25C17.25 23.13 21 18.25 21 13V7l-9-5z"/>
+        <path d="M12 8v4m0 2h.01" stroke-linecap="round"/>
+      </svg>
+      <h1>Security Query Hub</h1>
+      <p class="subtitle">SentinelOne Deep Visibility Interface</p>
+    </div>
+    <div id="login-error" class="alert alert-danger hidden"></div>
+    <div class="form-group">
+      <label for="login-user">Username</label>
+      <input type="text" id="login-user" placeholder="Enter username" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label for="login-pass">Password</label>
+      <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary w-full" id="btn-login">Sign In</button>
+    <p class="text-center text-sm text-muted mt-md">Internal Use Only</p>
+  </div>
+</div>
+
+<!-- Password Change Screen -->
+<div id="screen-password-change" class="screen hidden">
+  <div class="login-box">
+    <div class="text-center">
+      <svg class="login-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+      </svg>
+      <h1>Change Password</h1>
+      <p class="subtitle">You must change your default password before continuing.</p>
+    </div>
+    <div id="pw-change-error" class="alert alert-danger hidden"></div>
+    <div class="form-group">
+      <label for="pw-current">Current Password</label>
+      <input type="password" id="pw-current" placeholder="Current password">
+    </div>
+    <div class="form-group">
+      <label for="pw-new">New Password</label>
+      <input type="password" id="pw-new" placeholder="New password">
+    </div>
+    <div class="form-group">
+      <label for="pw-confirm">Confirm New Password</label>
+      <input type="password" id="pw-confirm" placeholder="Confirm password">
+    </div>
+    <button class="btn btn-primary w-full" id="btn-change-pw">Update Password &amp; Continue</button>
+  </div>
+</div>
+
+<!-- Main App Shell -->
+<div id="app-shell" class="hidden">
+  <!-- Top Navigation -->
+  <nav class="topnav">
+    <div class="topnav-left">
+      <a href="#" class="topnav-brand" onclick="SQH.nav('queries')">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 2L3 7v6c0 5.25 3.75 10.13 9 11.25C17.25 23.13 21 18.25 21 13V7l-9-5z"/>
+        </svg>
+        <span>Security Query Hub</span>
+      </a>
+      <div class="topnav-links">
+        <a href="#" data-page="queries" class="active" onclick="SQH.nav('queries')">Run Query</a>
+        <a href="#" data-page="history" onclick="SQH.nav('history')">History</a>
+        <a href="#" data-page="admin" id="nav-admin" class="hidden" onclick="SQH.nav('admin')">Admin Panel</a>
+      </div>
+    </div>
+    <div class="topnav-right">
+      <div class="disk-indicator" id="disk-indicator" title="Disk usage">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <div class="disk-bar-mini"><div class="disk-bar-mini-fill" id="disk-mini-fill"></div></div>
+        <span class="disk-pct" id="disk-mini-pct">--%</span>
+      </div>
+      <button class="theme-toggle" id="btn-theme" title="Toggle theme">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon-sun"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon-moon" class="hidden"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+      </button>
+      <div class="user-menu" id="user-menu">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span class="user-menu-name" id="user-display">user</span>
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        <div class="user-dropdown" id="user-dropdown">
+          <div class="dropdown-header">
+            <div class="dropdown-name" id="dropdown-name">-</div>
+            <div class="dropdown-role" id="dropdown-role">-</div>
+          </div>
+          <button onclick="SQH.logout()">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Page: Run Query -->
+  <div id="page-queries" class="page-content">
+    <div class="page-header">
+      <div>
+        <h2>Run Query</h2>
+        <p class="text-sm text-muted">Select a stored query, fill in parameters, and execute</p>
+      </div>
+    </div>
+    <div class="query-grid">
+      <div class="query-sidebar">
+        <div class="category-filter" id="category-filter"></div>
+        <div class="query-list" id="query-list">
+          <div class="empty-state">Loading stored queries...</div>
+        </div>
+      </div>
+      <div class="query-detail card" id="query-detail">
+        <div class="empty-state">Select a query from the list to get started</div>
+      </div>
+    </div>
+    <div id="query-loading" class="card mt-lg hidden">
+      <div class="loading-state"><div class="spinner"></div><p>Executing Deep Visibility query...</p><p class="text-sm text-muted">This may take up to 30 seconds</p></div>
+    </div>
+    <div id="results-area" class="mt-lg hidden"></div>
+  </div>
+
+  <!-- Page: History -->
+  <div id="page-history" class="page-content hidden">
+    <div class="page-header"><div><h2>Query History</h2><p class="text-sm text-muted">Your executed queries and shared results</p></div></div>
+    <div class="history-filters">
+      <select id="history-scope"><option value="all">All (Mine + Shared)</option><option value="mine">My Queries Only</option><option value="shared">Shared Only</option></select>
+      <select id="history-status"><option value="all">All Statuses</option><option value="success">Success</option><option value="error">Error</option></select>
+      <input type="text" id="history-search" placeholder="Search history..." class="search-input">
+    </div>
+    <div class="table-wrap" id="history-table-wrap"></div>
+  </div>
+
+  <!-- Page: Admin -->
+  <div id="page-admin" class="page-content no-pad hidden">
+    <div class="admin-layout">
+      <div class="admin-sidebar">
+        <div class="sidebar-heading">Management</div>
+        <a href="#" data-admin="users" class="active" onclick="SQH.adminTab('users')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Users</a>
+        <a href="#" data-admin="queries" onclick="SQH.adminTab('queries')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Stored Queries</a>
+        <a href="#" data-admin="hist-mgmt" onclick="SQH.adminTab('hist-mgmt')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> History Mgmt</a>
+        <div class="sidebar-heading">System</div>
+        <a href="#" data-admin="disk" onclick="SQH.adminTab('disk')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Disk Usage</a>
+        <a href="#" data-admin="wizard" onclick="SQH.adminTab('wizard')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> Setup Wizard</a>
+      </div>
+      <div class="admin-content" id="admin-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Container -->
+<div id="modal-overlay" class="modal-overlay hidden" onclick="SQH.closeModal(event)">
+  <div class="modal" id="modal-body" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

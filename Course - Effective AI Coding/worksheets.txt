@@ -1,0 +1,444 @@
+================================================================================
+EFFECTIVE AI CODING — WORKSHEETS
+================================================================================
+Complete each worksheet during the corresponding module. These are hands-on
+exercises you apply to YOUR project (not a hypothetical one). Write your
+answers directly in this document or on a separate sheet.
+
+
+================================================================================
+WORKSHEET 1: PLANNING
+================================================================================
+
+1.1  PROJECT OVERVIEW
+     Write a single paragraph (3-5 sentences) describing your project.
+     Answer: What is it? Who is it for? What problem does it solve?
+
+     Your answer:
+     _____________________________________________________________________
+     _____________________________________________________________________
+     _____________________________________________________________________
+     _____________________________________________________________________
+
+
+1.2  ARCHITECTURE DECISIONS
+     Fill in each row with YOUR project's choices. Do not leave any blank.
+     If you are unsure, research the options and pick one — do not skip it.
+
+     Cloud Provider:         ____________________________________________
+     Compute:                ____________________________________________
+     Operating System:       ____________________________________________
+     Instance/Server Type:   ____________________________________________
+     Storage:                ____________________________________________
+     Database:               ____________________________________________
+     Network / Access:       ____________________________________________
+     Port:                   ____________________________________________
+
+
+1.3  TECH STACK
+     Be specific. "Python" is not enough — write "Python 3.12 with FastAPI."
+
+     Backend:                ____________________________________________
+     Frontend:               ____________________________________________
+     Database:               ____________________________________________
+     External APIs/Services: ____________________________________________
+     Authentication method:  ____________________________________________
+
+
+1.4  FEATURE SCOPE — WHAT IS IN
+     List every feature that MUST be in this iteration. Be specific about
+     behavior, not vague about intent.
+     Bad:  "User management"
+     Good: "Admins can create, deactivate, and delete user accounts.
+            Standard users cannot access admin functions."
+
+     Feature 1: ___________________________________________________________
+     Feature 2: ___________________________________________________________
+     Feature 3: ___________________________________________________________
+     Feature 4: ___________________________________________________________
+     Feature 5: ___________________________________________________________
+     Feature 6: ___________________________________________________________
+     Feature 7: ___________________________________________________________
+     Feature 8: ___________________________________________________________
+     (Add more as needed)
+
+
+1.5  FEATURE SCOPE — WHAT IS OUT
+     List features you are deliberately deferring. This prevents the AI from
+     adding things you did not ask for.
+
+     Deferred 1: __________________________________________________________
+     Deferred 2: __________________________________________________________
+     Deferred 3: __________________________________________________________
+     Deferred 4: __________________________________________________________
+
+
+1.6  ROLES AND ACCESS RULES
+     Who uses your application? What can each role do? What is restricted?
+
+     Role 1: ________________  Can do: ___________________________________
+     Role 2: ________________  Can do: ___________________________________
+     Role 3: ________________  Can do: ___________________________________
+
+     What requires authentication? ________________________________________
+     What is accessible without login? _____________________________________
+
+
+1.7  UX / DESIGN RULES
+     Write 5-8 plain-language rules about how the application should look
+     and behave. These become constraints for the AI.
+
+     Rule 1: _______________________________________________________________
+     Rule 2: _______________________________________________________________
+     Rule 3: _______________________________________________________________
+     Rule 4: _______________________________________________________________
+     Rule 5: _______________________________________________________________
+     Rule 6: _______________________________________________________________
+     Rule 7: _______________________________________________________________
+     Rule 8: _______________________________________________________________
+
+
+================================================================================
+WORKSHEET 2: GOAL PROTOTYPING
+================================================================================
+
+2.1  SEED FILE CREATION CHECKLIST
+     Check each item as you add it to your seed file.
+
+     [ ] Project overview paragraph
+     [ ] Architecture and infrastructure table
+     [ ] Tech stack table
+     [ ] Authentication and user management rules
+     [ ] Feature descriptions with specific behavior
+     [ ] Data model / what gets stored
+     [ ] UI layout description (pages, navigation, key elements)
+     [ ] Deployment constraints (port, network, environment)
+     [ ] What is deferred / not included
+
+     Total sections in your seed file: _______
+
+
+2.2  WIREFRAME PROMPT
+     Write the exact prompt you will give the AI to generate the wireframe.
+     Include a reference to the seed file and specify fake data.
+
+     Your prompt:
+     _____________________________________________________________________
+     _____________________________________________________________________
+     _____________________________________________________________________
+
+
+2.3  PROTOTYPE REVIEW CHECKLIST
+     After the AI generates the wireframe, walk through it and check each:
+
+     [ ] Login flow works (enter credentials, see the app)
+     [ ] Every page from the seed file has a corresponding screen
+     [ ] Navigation between pages works
+     [ ] All user roles are represented (can you see the difference?)
+     [ ] Data displays look realistic
+     [ ] Action buttons are present (create, edit, delete, export, etc.)
+     [ ] Error states are represented (what happens when something fails?)
+     [ ] The overall look and feel matches your design rules
+
+     Issues found:
+     1. ___________________________________________________________________
+     2. ___________________________________________________________________
+     3. ___________________________________________________________________
+     4. ___________________________________________________________________
+     5. ___________________________________________________________________
+
+
+2.4  STAKEHOLDER FEEDBACK
+     Show the prototype to at least one other person. Record their feedback.
+
+     Reviewer name / role: ________________________________________________
+     Feedback:
+     1. ___________________________________________________________________
+     2. ___________________________________________________________________
+     3. ___________________________________________________________________
+
+
+================================================================================
+WORKSHEET 3: FEATURE CHANGES
+================================================================================
+
+3.1  CHANGE LOG
+     List every change identified from the prototype review and stakeholder
+     feedback. Categorize each as: NEW (new feature), CHANGE (modify
+     existing), or REMOVE (drop a feature).
+
+     #   Type      Description                        Seed File Section
+     --  --------  ---------------------------------  ------------------
+     1.  ________  _________________________________  __________________
+     2.  ________  _________________________________  __________________
+     3.  ________  _________________________________  __________________
+     4.  ________  _________________________________  __________________
+     5.  ________  _________________________________  __________________
+     6.  ________  _________________________________  __________________
+
+
+3.2  DESIGN QUESTIONS FOR THE AI
+     List questions you need the AI to help you answer before building.
+     For each, record the options it presents and YOUR decision.
+
+     Question 1: ___________________________________________________________
+     AI options:  a) ________________  b) ________________  c) ________________
+     Your decision: ________________________________________________________
+     Rationale: ____________________________________________________________
+
+     Question 2: ___________________________________________________________
+     AI options:  a) ________________  b) ________________  c) ________________
+     Your decision: ________________________________________________________
+     Rationale: ____________________________________________________________
+
+     Question 3: ___________________________________________________________
+     AI options:  a) ________________  b) ________________  c) ________________
+     Your decision: ________________________________________________________
+     Rationale: ____________________________________________________________
+
+
+3.3  SEED FILE UPDATE VERIFICATION
+     After updating the seed file, re-read it completely and answer:
+
+     [ ] Every change from 3.1 is reflected in the seed file
+     [ ] No contradictions exist between old and new sections
+     [ ] Every feature has enough detail for the AI to build it
+     [ ] The seed file reads coherently from start to finish
+     [ ] The total section count is: _______
+
+
+================================================================================
+WORKSHEET 4: PROJECT CREATION
+================================================================================
+
+4.1  BUILD PROMPT
+     Write the exact prompt you will give the AI to build the application.
+
+     Your prompt:
+     _____________________________________________________________________
+     _____________________________________________________________________
+     _____________________________________________________________________
+
+
+4.2  GENERATED FILE REVIEW
+     After the AI generates the project, list every file it created.
+     Mark each as REVIEWED or NOT YET REVIEWED.
+
+     File Path                              Reviewed?   Notes
+     -------------------------------------  ---------   --------------------
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     ______________________________________  [ ]        ____________________
+     (Add rows as needed)
+
+
+4.3  INITIAL SMOKE TEST
+     Run through these basic checks immediately after generation:
+
+     [ ] The project starts without syntax errors
+     [ ] The main page loads in a browser
+     [ ] Login/authentication works
+     [ ] Basic navigation between pages works
+     [ ] At least one core feature works end-to-end
+
+     Issues found (report each to the AI):
+     1. ___________________________________________________________________
+     2. ___________________________________________________________________
+     3. ___________________________________________________________________
+
+
+4.4  BUG REPORT LOG
+     Track each bug you find and how you reported it to the AI.
+
+     #   Symptom (what you saw)        Fix Applied?   Verified?
+     --  ----------------------------  -------------  ---------
+     1.  ____________________________  [ ]            [ ]
+     2.  ____________________________  [ ]            [ ]
+     3.  ____________________________  [ ]            [ ]
+     4.  ____________________________  [ ]            [ ]
+     5.  ____________________________  [ ]            [ ]
+
+
+================================================================================
+WORKSHEET 5: DEPLOYMENT AND SETUP
+================================================================================
+
+5.1  ENVIRONMENT PREPARATION CHECKLIST
+
+     [ ] Server/instance provisioned
+     [ ] Operating system is the expected version
+     [ ] Network / firewall rules configured
+     [ ] System dependencies installed
+     [ ] Application user and directories created
+     [ ] Application code uploaded
+     [ ] Runtime dependencies installed (pip, npm, etc.)
+
+     Notes on issues encountered:
+     _____________________________________________________________________
+     _____________________________________________________________________
+
+
+5.2  SECRETS AND CONFIGURATION
+
+     List every secret or credential your application needs.
+     For each, record WHERE it is stored and WHO generated it.
+
+     Secret                   Stored Where          Generated By
+     -----------------------  --------------------  --------------------
+     ________________________ ____________________  ____________________
+     ________________________ ____________________  ____________________
+     ________________________ ____________________  ____________________
+     ________________________ ____________________  ____________________
+
+     [ ] All secret files have restricted permissions (600 or 640)
+     [ ] No secrets are in source code or version control
+
+
+5.3  STARTUP VERIFICATION
+
+     [ ] Service starts without errors
+     [ ] Application responds on the expected port
+     [ ] Logs are being written (stdout and/or file)
+     [ ] Database was created/initialized
+     [ ] Default admin account exists and can log in
+
+
+5.4  INITIAL CONFIGURATION
+
+     [ ] Default admin password changed
+     [ ] External service credentials configured (API keys, etc.)
+     [ ] Application settings configured (thresholds, timeouts, policies)
+     [ ] Additional user accounts created
+     [ ] All configured users can log in
+
+
+================================================================================
+WORKSHEET 6: TESTING AND VALIDATION
+================================================================================
+
+6.1  TEST PLAN
+     Convert each feature from your seed file into a test case.
+     Use this format: "When [action], expect [result]."
+
+     Test 1: When _________________________, expect _________________________
+     Test 2: When _________________________, expect _________________________
+     Test 3: When _________________________, expect _________________________
+     Test 4: When _________________________, expect _________________________
+     Test 5: When _________________________, expect _________________________
+     Test 6: When _________________________, expect _________________________
+     Test 7: When _________________________, expect _________________________
+     Test 8: When _________________________, expect _________________________
+     Test 9: When _________________________, expect _________________________
+     Test 10: When ________________________, expect _________________________
+     (Add more as needed)
+
+
+6.2  FUNCTIONAL TEST RESULTS
+
+     Test #   Pass/Fail   Notes
+     -------  ---------   -----------------------------------------------
+     1        [ ]         ________________________________________________
+     2        [ ]         ________________________________________________
+     3        [ ]         ________________________________________________
+     4        [ ]         ________________________________________________
+     5        [ ]         ________________________________________________
+     6        [ ]         ________________________________________________
+     7        [ ]         ________________________________________________
+     8        [ ]         ________________________________________________
+     9        [ ]         ________________________________________________
+     10       [ ]         ________________________________________________
+
+
+6.3  EDGE CASE TESTS
+
+     [ ] Bad input / empty fields are handled gracefully
+     [ ] Unauthorized access attempts are blocked
+     [ ] External service unavailable is handled with a clear message
+     [ ] Resource limits (disk, memory) behave as designed
+     [ ] Session timeout works correctly
+     [ ] Concurrent usage does not cause errors
+
+
+6.4  SECURITY CHECKLIST
+
+     [ ] Credentials are encrypted at rest
+     [ ] No sensitive data in application logs
+     [ ] Session cookies are httponly / secure
+     [ ] Role-based access is enforced on the backend (not just the UI)
+     [ ] File permissions on secrets are restrictive
+     [ ] Default credentials have been changed
+
+
+================================================================================
+WORKSHEET 7: HANDOFF AND ITERATION
+================================================================================
+
+7.1  DOCUMENTATION PACKAGE CHECKLIST
+
+     [ ] Project requirements / seed file
+     [ ] Setup and deployment guide
+     [ ] Project steps overview
+     [ ] Architecture decisions document
+     [ ] Troubleshooting guide
+     [ ] All documents are up to date with the final state of the code
+
+     Location of documentation: ____________________________________________
+
+
+7.2  KNOWLEDGE TRANSFER CHECKLIST
+
+     [ ] Demonstrated the application to the team
+     [ ] Walked through admin functions
+     [ ] Explained backup and recovery procedures
+     [ ] Explained how to update the application
+     [ ] Explained how to rotate secrets/credentials
+     [ ] Answered team questions
+
+     Team members trained:
+     1. ___________________________________________________________________
+     2. ___________________________________________________________________
+     3. ___________________________________________________________________
+
+
+7.3  ITERATION 2 BACKLOG
+     Collect feedback and prioritize features for the next iteration.
+
+     Priority   Feature / Improvement         Source (feedback / planned)
+     ---------  ----------------------------  --------------------------
+     High       ____________________________  __________________________
+     High       ____________________________  __________________________
+     Medium     ____________________________  __________________________
+     Medium     ____________________________  __________________________
+     Low        ____________________________  __________________________
+     Low        ____________________________  __________________________
+
+
+7.4  RETROSPECTIVE
+     Answer honestly — this improves your next project.
+
+     What worked well in this process?
+     _____________________________________________________________________
+     _____________________________________________________________________
+
+     What was frustrating or inefficient?
+     _____________________________________________________________________
+     _____________________________________________________________________
+
+     What would you do differently next time?
+     _____________________________________________________________________
+     _____________________________________________________________________
+
+     How much time did the planning phase save during the build phase?
+     _____________________________________________________________________
+
+
+================================================================================
+END OF WORKSHEETS
+================================================================================

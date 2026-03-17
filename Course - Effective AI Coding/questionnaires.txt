@@ -1,0 +1,248 @@
+================================================================================
+EFFECTIVE AI CODING — QUESTIONNAIRES
+================================================================================
+Complete each questionnaire at the end of the corresponding module.
+These are self-assessments — answer honestly. If you answer "No" to any
+question, go back and address it before moving to the next module.
+
+Scoring: Each "Yes" = 1 point. You need ALL points to proceed.
+
+
+================================================================================
+QUESTIONNAIRE 1: PLANNING (7 questions)
+================================================================================
+Answer Yes or No to each. You must answer Yes to all before proceeding.
+
+1. Can you describe your project in one paragraph without using the words
+   "basically" or "kind of"?
+   [ ] Yes  [ ] No
+
+2. Have you selected specific technologies for every layer of the stack
+   (not "something like X" but "X version Y")?
+   [ ] Yes  [ ] No
+
+3. Can you list every feature in this iteration AND explain why each
+   deferred feature is not included yet?
+   [ ] Yes  [ ] No
+
+4. Have you defined at least two distinct user roles with specific
+   permissions for each?
+   [ ] Yes  [ ] No
+
+5. Could a developer who has never heard of your project read your PDD
+   and understand what to build without asking you questions?
+   [ ] Yes  [ ] No
+
+6. Have you written your UX/design rules as concrete statements
+   (not "it should look nice" but "dark theme by default with a
+   light mode toggle")?
+   [ ] Yes  [ ] No
+
+7. Have you made your own architecture decisions instead of planning
+   to ask the AI to choose for you?
+   [ ] Yes  [ ] No
+
+Score: _____ / 7       Proceed? [ ] Yes  [ ] No
+
+
+================================================================================
+QUESTIONNAIRE 2: GOAL PROTOTYPING (6 questions)
+================================================================================
+
+1. Is your seed file a single document that contains ALL requirements
+   from ALL planning documents, with no information left only in your
+   head or in a separate file?
+   [ ] Yes  [ ] No
+
+2. Does the seed file have numbered sections with clear headers that
+   an AI can reference?
+   [ ] Yes  [ ] No
+
+3. Have you generated a wireframe/prototype that includes EVERY page
+   and feature described in the seed file?
+   [ ] Yes  [ ] No
+
+4. Have you clicked every button and visited every page in the prototype
+   to verify it matches your expectations?
+   [ ] Yes  [ ] No
+
+5. Have you shown the prototype to at least one other person and
+   recorded their feedback?
+   [ ] Yes  [ ] No
+
+6. Have you made a list of every issue, gap, or misunderstanding found
+   during the prototype review?
+   [ ] Yes  [ ] No
+
+Score: _____ / 6       Proceed? [ ] Yes  [ ] No
+
+
+================================================================================
+QUESTIONNAIRE 3: FEATURE CHANGES (5 questions)
+================================================================================
+
+1. Is every change from the prototype review documented in a change log
+   (not just in your memory)?
+   [ ] Yes  [ ] No
+
+2. For every design question you asked the AI, did YOU make the final
+   decision (not just accept the AI's first suggestion)?
+   [ ] Yes  [ ] No
+
+3. Has every change been applied to the seed file (not stored in a
+   separate notes document)?
+   [ ] Yes  [ ] No
+
+4. Have you re-read the complete seed file from start to finish after
+   all changes to check for contradictions?
+   [ ] Yes  [ ] No
+
+5. If you handed the seed file to a different AI tool or a different
+   developer, would they build the same thing you have in mind?
+   [ ] Yes  [ ] No
+
+Score: _____ / 5       Proceed? [ ] Yes  [ ] No
+
+
+================================================================================
+QUESTIONNAIRE 4: PROJECT CREATION (6 questions)
+================================================================================
+
+1. Did you give the AI the seed file as the primary instruction, rather
+   than describing the project from scratch in the prompt?
+   [ ] Yes  [ ] No
+
+2. Have you reviewed EVERY file the AI generated (not just opened them,
+   but actually read them)?
+   [ ] Yes  [ ] No
+
+3. Can the application start up without crashing?
+   [ ] Yes  [ ] No
+
+4. Can you log in and perform at least one core feature end-to-end?
+   [ ] Yes  [ ] No
+
+5. Did you report bugs to the AI by describing SYMPTOMS ("the button
+   does not open the modal") rather than prescribing solutions
+   ("add an event listener to the button")?
+   [ ] Yes  [ ] No
+
+6. For every AI-generated file, could you explain what it does to a
+   colleague at a high level?
+   [ ] Yes  [ ] No
+
+Score: _____ / 6       Proceed? [ ] Yes  [ ] No
+
+
+================================================================================
+QUESTIONNAIRE 5: DEPLOYMENT AND SETUP (6 questions)
+================================================================================
+
+1. Did you follow the setup guide step by step, running each command
+   individually (not copying the entire guide into the terminal)?
+   [ ] Yes  [ ] No
+
+2. Are all secrets (keys, passwords, passphrases) stored in a
+   designated secure location with restricted file permissions?
+   [ ] Yes  [ ] No
+
+3. Is the application running as a service that will restart
+   automatically if it crashes or the server reboots?
+   [ ] Yes  [ ] No
+
+4. Have you changed ALL default credentials (admin passwords, etc.)?
+   [ ] Yes  [ ] No
+
+5. Can you access the application from the intended network
+   (and ONLY from the intended network)?
+   [ ] Yes  [ ] No
+
+6. Are application logs being written and are they accessible for
+   troubleshooting?
+   [ ] Yes  [ ] No
+
+Score: _____ / 6       Proceed? [ ] Yes  [ ] No
+
+
+================================================================================
+QUESTIONNAIRE 6: TESTING AND VALIDATION (6 questions)
+================================================================================
+
+1. Have you written a test case for every feature listed in the seed
+   file (not just the features you think might break)?
+   [ ] Yes  [ ] No
+
+2. Have you tested with every user role, not just the admin account?
+   [ ] Yes  [ ] No
+
+3. Have you tested what happens when things go WRONG (bad input,
+   service down, expired session, unauthorized access)?
+   [ ] Yes  [ ] No
+
+4. Have you verified that security controls work on the BACKEND
+   (not just hidden in the UI — e.g., a standard user hitting an
+   admin API endpoint directly)?
+   [ ] Yes  [ ] No
+
+5. Is every bug you found during testing now fixed and re-verified?
+   [ ] Yes  [ ] No
+
+6. Would you be comfortable letting your team use this application
+   starting tomorrow?
+   [ ] Yes  [ ] No
+
+Score: _____ / 6       Proceed? [ ] Yes  [ ] No
+
+
+================================================================================
+QUESTIONNAIRE 7: HANDOFF AND ITERATION (5 questions)
+================================================================================
+
+1. If you were hit by a bus tomorrow, could someone else maintain
+   this application using only the documentation you have created?
+   [ ] Yes  [ ] No
+
+2. Has at least one team member successfully used the application
+   without your help?
+   [ ] Yes  [ ] No
+
+3. Does the team know how to: restart the service, check logs,
+   back up the database, and reset a user password?
+   [ ] Yes  [ ] No
+
+4. Do you have a prioritized list of improvements for the next
+   iteration based on real feedback (not just your assumptions)?
+   [ ] Yes  [ ] No
+
+5. Could you repeat this entire process for a completely different
+   project, using the same 7-step framework?
+   [ ] Yes  [ ] No
+
+Score: _____ / 5       Course Complete? [ ] Yes  [ ] No
+
+
+================================================================================
+FINAL COURSE ASSESSMENT
+================================================================================
+
+Total score across all questionnaires: _____ / 41
+
+If you scored 41/41: Congratulations. You have completed the Effective AI
+Coding course and demonstrated a repeatable process for building software
+with AI assistance.
+
+If you scored less than 41: Review the modules where you answered "No" and
+address the gaps. The framework only works when every step is complete.
+
+Key takeaway to write in your own words — what is the most important thing
+you learned?
+
+_________________________________________________________________________
+_________________________________________________________________________
+_________________________________________________________________________
+_________________________________________________________________________
+
+
+================================================================================
+END OF QUESTIONNAIRES
+================================================================================

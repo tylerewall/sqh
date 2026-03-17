@@ -1,0 +1,272 @@
+================================================================================
+SECURITY QUERY HUB — PROJECT STEPS OVERVIEW
+================================================================================
+
+Broad steps for building the Security Query Hub from concept to production.
+Each step maps to a folder in the project workspace.
+
+
+================================================================================
+STEP 1 — PLANNING
+================================================================================
+Folder: Step 1 - Planning/
+
+Goal: Define what the project is, what it does, and what constraints it
+operates under before writing any code.
+
+  1.  Write the Project Definition Document (PDD)
+      - Project overview and objectives
+      - Target users (SOC Analysts, Incident Responders, Threat Hunters)
+      - Architecture decisions (AWS EC2, Ubuntu, SQLite, FastAPI)
+      - Hosting and infrastructure specs (instance type, storage, network)
+      - Tech stack selection with rationale
+      - Feature scope for Iteration 1 vs. deferred features
+
+  2.  Define authentication and user management rules
+      - Two roles: Admin and Standard User
+      - Session-based auth, server-side storage
+      - Default admin account with forced password change
+      - Password policy framework
+
+  3.  Write the UX design rules
+      - Admin panel vs. standard user areas
+      - Data persistence rules
+      - Export and share functionality
+      - FIFO disk cleanup behavior
+      - Setup wizard requirements
+
+  4.  Identify the data source integration
+      - SentinelOne Deep Visibility API
+      - Authentication method (API Key + Secret)
+      - Query submission and result retrieval flow
+
+  Deliverables:
+    - Project Requirements document (PDD)
+    - UX design rules document
+
+
+================================================================================
+STEP 2 — GOAL PROTOTYPING
+================================================================================
+Folder: Step 2 - Goal Prototyping/
+
+Goal: Turn the written requirements into something visual before building the
+real application. Validate the design with stakeholders.
+
+  1.  Consolidate all requirements into a single seed file
+      - Merge the PDD, UX rules, and any design decisions into one
+        comprehensive text document that an AI or developer can use as the
+        authoritative build spec
+
+  2.  Build an interactive wireframe / HTML prototype
+      - Create a self-contained HTML file with fake data
+      - Include every page: login, password change, query execution, results
+        table, query history, and the full admin panel (users, stored queries,
+        history management, disk usage, setup wizard)
+      - Use realistic fake data (security-relevant process names, IPs, hashes)
+      - Make it clickable so stakeholders can walk through the flow
+
+  3.  Review the prototype
+      - Verify all features from the PDD are represented
+      - Check that the user flow makes sense
+      - Identify any gaps or misunderstandings in the requirements
+      - Gather feedback before committing to code
+
+  Deliverables:
+    - Consolidated seed file (single source of truth for requirements)
+    - Interactive wireframe HTML file
+
+
+================================================================================
+STEP 3 — FEATURE CHANGES
+================================================================================
+Folder: Step 3 - Feature Changes/
+
+Goal: Capture any changes, additions, or refinements that come out of the
+prototype review or further discussion before building the real application.
+
+  1.  Document updated UX/design rules
+      - Record any changes from the prototype review
+      - Add new requirements discovered during prototyping
+
+  2.  Make architecture and design decisions
+      - Decide on credential storage approach (Fernet + SQLCipher layered
+        encryption)
+      - Decide on theme (light mode default vs. dark)
+      - Decide on icon/branding approach (SVG, no emojis)
+      - Confirm API integration details
+
+  3.  Update the seed file with all changes
+      - Add new sections (e.g., Section 15: Secrets and Credential Management)
+      - Modify existing sections to reflect design decisions
+      - The updated seed file becomes the final build specification
+
+  Deliverables:
+    - Updated UX design rules
+    - Final seed file with all changes incorporated
+
+
+================================================================================
+STEP 4 — PROJECT CREATION
+================================================================================
+Folder: Step 4 - Project Creation/
+
+Goal: Build the actual application code using the finalized seed file as the
+specification.
+
+  1.  Generate bootstrap secrets
+      - Create the Fernet encryption key (SQH_ENCRYPTION_KEY)
+      - Create the SQLCipher database passphrase (SQH_DB_PASSPHRASE)
+      - Store securely (not in source code)
+
+  2.  Build the backend (Python / FastAPI)
+      - Project structure: config, database, auth, routes, models
+      - Database layer: SQLCipher connection, schema with 7 tables (users,
+        sessions, app_config, stored_queries, query_params, query_history,
+        query_results)
+      - Authentication: bcrypt password hashing, session management, password
+        policy enforcement, forced password change
+      - Secrets manager: Fernet encrypt/decrypt for API credentials
+      - SentinelOne client: async DV API integration (init-query, poll, fetch)
+      - Disk monitor: usage stats, FIFO cleanup, retention cleanup
+      - API routes: auth, queries, history, admin, system/config
+      - Background tasks: session cleanup, FIFO, retention (every 5 min)
+      - Logging: verbose to stdout + rotating log file
+
+  3.  Build the frontend (Static HTML / CSS / JS)
+      - Single-page application shell (index.html)
+      - Light theme by default, dark mode toggle, SVG icons (no emojis)
+      - Login and forced password change screens
+      - Query execution: stored query selector, dynamic parameter form,
+        results table (sortable, filterable)
+      - Export (CSV, JSON, PDF) and share functionality
+      - Query history with scope/status filters
+      - Admin panel: user management, stored query CRUD, history bulk
+        delete, disk usage dashboard, 5-step setup wizard
+
+  4.  Create the deployment configuration
+      - requirements.txt with Python dependencies
+      - run.py entry point for uvicorn
+
+  Deliverables:
+    - Complete application source code
+    - requirements.txt
+    - Final seed file (newseedfile.txt)
+
+
+================================================================================
+STEP 5 — DEPLOYMENT AND SETUP
+================================================================================
+Folder: (Covered by setup_guide.txt in Step 4)
+
+Goal: Deploy the application to the production EC2 instance and perform
+initial configuration.
+
+  1.  Prepare the EC2 instance
+      - Launch Ubuntu 24.04 LTS on t3.medium with 100GB EBS gp3
+      - Configure security group (port 80, VPN CIDR only)
+      - Install system dependencies (python3, libsqlcipher-dev)
+
+  2.  Deploy the application
+      - Create service user and directories (/opt/sqh/)
+      - Upload application code
+      - Create Python virtual environment and install dependencies
+      - Configure /etc/sqh/env with bootstrap secrets
+
+  3.  Configure systemd
+      - Create sqh.service unit file
+      - Enable and start the service
+      - Verify it runs on port 80
+
+  4.  Initial application configuration
+      - Log in as admin / admin
+      - Change the default password
+      - Run the Setup Wizard (S1 API creds, disk threshold, session
+        timeout, password policy, retention period)
+      - Create user accounts for the security team
+
+  5.  Verify end-to-end
+      - Create a stored query
+      - Run it and confirm S1 DV results appear
+      - Test export (CSV, JSON, PDF) and share
+      - Test as a standard user
+      - Confirm disk usage indicator and admin panel features
+
+  Deliverables:
+    - Running production instance
+    - Configured SentinelOne integration
+    - User accounts created
+
+
+================================================================================
+STEP 6 — TESTING AND VALIDATION
+================================================================================
+
+Goal: Confirm everything works correctly before handing off to the team.
+
+  1.  Functional testing
+      - All login/logout flows (admin and standard user)
+      - Forced password change on new accounts
+      - Query execution with each parameter type (text, datetime, dropdown)
+      - Results display, sorting, filtering
+      - Export in all three formats
+      - Share and verify visibility for other users
+      - History filtering by scope and status
+
+  2.  Admin panel testing
+      - User CRUD (create, deactivate, reactivate, reset password, delete)
+      - Stored query CRUD (create, edit, delete)
+      - Bulk history deletion (all, 30 days, date range)
+      - Disk usage accuracy
+      - Setup wizard save and re-run
+
+  3.  Edge case testing
+      - Concurrent query prevention (one per user)
+      - Session timeout behavior
+      - FIFO cleanup trigger when disk threshold is exceeded
+      - Retention cleanup for expired results
+      - Deactivated user cannot log in
+      - Standard user cannot access admin routes
+
+  4.  Security review
+      - Verify API credentials are Fernet-encrypted in the database
+      - Verify /etc/sqh/env permissions (640, root:sqh)
+      - Verify no credentials in logs at any level
+      - Verify session cookies are httponly
+
+  Deliverables:
+    - Test results / checklist
+    - Any bug fixes applied
+
+
+================================================================================
+STEP 7 — HANDOFF AND DOCUMENTATION
+================================================================================
+
+Goal: Make the project maintainable for the team going forward.
+
+  1.  Finalize documentation
+      - Setup guide (already created)
+      - Project requirements (newseedfile.txt)
+      - Troubleshooting section in setup guide
+
+  2.  Knowledge transfer
+      - Walk the team through the admin panel
+      - Demonstrate creating and running stored queries
+      - Explain the backup and key rotation procedures
+
+  3.  Plan for Iteration 2
+      - SSL/TLS encryption
+      - Advanced result parsing and formatting
+      - Downstream integrations (Splunk)
+      - Any feature requests from the team after using Iteration 1
+
+  Deliverables:
+    - Complete documentation package
+    - Team trained on usage and administration
+    - Iteration 2 backlog started
+
+
+================================================================================
+END OF PROJECT STEPS OVERVIEW
+================================================================================

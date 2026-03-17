@@ -1,0 +1,330 @@
+================================================================================
+SECURITY QUERY HUB — SETUP GUIDE
+Ubuntu 24.04 LTS on AWS EC2 (t3.medium)
+================================================================================
+
+
+PREREQUISITES
+  - An EC2 instance running Ubuntu 24.04 LTS
+  - Instance type: t3.medium (2 vCPU, 4 GB RAM) or larger
+  - 100 GB EBS gp3 volume (encrypted) attached
+  - Security group / ACL allowing inbound port 80 from VPN subnets only
+  - SSH access to the instance
+
+
+================================================================================
+STEP 1: SYSTEM UPDATES AND DEPENDENCIES
+================================================================================
+
+  Connect to the instance via SSH and run:
+
+    sudo apt update && sudo apt upgrade -y
+
+  Install required system packages:
+
+    sudo apt install -y python3 python3-pip python3-venv \
+      build-essential libsqlcipher-dev sqlcipher
+
+  Verify versions:
+
+    python3 --version        # Should be 3.12+
+    sqlcipher --version      # Should show SQLCipher version
+
+
+================================================================================
+STEP 2: CREATE THE APPLICATION USER AND DIRECTORIES
+================================================================================
+
+  Create a dedicated service user (no login shell):
+
+    sudo useradd -r -s /usr/sbin/nologin sqh
+
+  Create the application directories:
+
+    sudo mkdir -p /opt/sqh/app
+    sudo mkdir -p /opt/sqh/data
+    sudo mkdir -p /opt/sqh/logs
+    sudo mkdir -p /etc/sqh
+
+  Set ownership:
+
+    sudo chown -R sqh:sqh /opt/sqh
+
+
+================================================================================
+STEP 3: UPLOAD THE APPLICATION CODE
+================================================================================
+
+  Copy the entire application from "Step 4 - Project Creation" to the server.
+  You can use scp, rsync, or any file transfer method:
+
+    scp -r ./app ./run.py ./requirements.txt user@<EC2_IP>:/tmp/sqh-upload/
+
+  Then move into place:
+
+    sudo cp -r /tmp/sqh-upload/app /opt/sqh/
+    sudo cp /tmp/sqh-upload/run.py /opt/sqh/
+    sudo cp /tmp/sqh-upload/requirements.txt /opt/sqh/
+    sudo chown -R sqh:sqh /opt/sqh
+
+
+================================================================================
+STEP 4: CREATE PYTHON VIRTUAL ENVIRONMENT AND INSTALL DEPENDENCIES
+================================================================================
+
+  Create a virtual environment:
+
+    sudo -u sqh python3 -m venv /opt/sqh/venv
+
+  Install Python dependencies:
+
+    sudo -u sqh /opt/sqh/venv/bin/pip install -r /opt/sqh/requirements.txt
+
+  Verify installation:
+
+    sudo -u sqh /opt/sqh/venv/bin/python -c "import fastapi; print(fastapi.__version__)"
+    sudo -u sqh /opt/sqh/venv/bin/python -c "from pysqlcipher3 import dbapi2; print('SQLCipher OK')"
+
+
+================================================================================
+STEP 5: GENERATE AND CONFIGURE SECRETS
+================================================================================
+
+  Generate the Fernet encryption key:
+
+    /opt/sqh/venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+  Copy the output. This is your SQH_ENCRYPTION_KEY.
+
+  Generate the SQLCipher database passphrase:
+
+    openssl rand -base64 32
+
+  Copy the output. This is your SQH_DB_PASSPHRASE.
+
+  Create the environment file:
+
+    sudo nano /etc/sqh/env
+
+  Add the following contents (paste in your generated values):
+
+    SQH_ENCRYPTION_KEY=<paste Fernet key here>
+    SQH_DB_PASSPHRASE=<paste passphrase here>
+    SQH_DB_PATH=/opt/sqh/data/sqh.db
+    SQH_LOG_DIR=/opt/sqh/logs
+
+  Optionally, add SentinelOne fallback credentials (for first boot before the
+  wizard is run):
+
+    S1_API_KEY=<your SentinelOne API key>
+    S1_API_SECRET=<your SentinelOne API secret>
+
+  Lock down the file permissions:
+
+    sudo chown root:sqh /etc/sqh/env
+    sudo chmod 640 /etc/sqh/env
+
+
+================================================================================
+STEP 6: CREATE THE SYSTEMD SERVICE
+================================================================================
+
+  Create the service file:
+
+    sudo nano /etc/systemd/system/sqh.service
+
+  Paste the following:
+
+    [Unit]
+    Description=Security Query Hub
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=sqh
+    Group=sqh
+    WorkingDirectory=/opt/sqh
+    EnvironmentFile=/etc/sqh/env
+    ExecStart=/opt/sqh/venv/bin/python run.py
+    Restart=always
+    RestartSec=5
+
+    # Security hardening
+    NoNewPrivileges=yes
+    ProtectSystem=strict
+    ProtectHome=yes
+    ReadWritePaths=/opt/sqh/data /opt/sqh/logs
+    PrivateTmp=yes
+
+    # Allow binding to port 80
+    AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+    [Install]
+    WantedBy=multi-user.target
+
+  Reload systemd and enable the service:
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable sqh
+
+
+================================================================================
+STEP 7: START THE APPLICATION
+================================================================================
+
+  Start the service:
+
+    sudo systemctl start sqh
+
+  Check the status:
+
+    sudo systemctl status sqh
+
+  View the logs:
+
+    sudo journalctl -u sqh -f
+
+  Or check the application log file:
+
+    tail -f /opt/sqh/logs/sqh.log
+
+  The application should now be running on port 80. On first startup, it will:
+    1. Create the SQLCipher-encrypted database at /opt/sqh/data/sqh.db
+    2. Create the default admin account (admin / admin)
+    3. Begin listening on port 80
+
+
+================================================================================
+STEP 8: INITIAL CONFIGURATION
+================================================================================
+
+  Open a browser on a machine connected to the VPN and navigate to:
+
+    http://<EC2_PRIVATE_IP>/
+
+  8.1  Log in with the default admin credentials:
+
+    Username: admin
+    Password: admin
+
+  8.2  You will be forced to change the password. Set a strong password that
+       meets the default policy (minimum 8 characters).
+
+  8.3  Navigate to Admin Panel > Setup Wizard and configure:
+
+    Step 1 — SentinelOne API:
+      - Base URL (e.g., https://usea1-partners.sentinelone.net)
+      - API Key
+      - API Secret
+      - API Version (default: 2.1)
+
+    Step 2 — Storage:
+      - Disk cleanup threshold (default: 70%)
+
+    Step 3 — Sessions:
+      - Inactivity timeout (default: 8 hours)
+
+    Step 4 — Password Policy:
+      - Minimum length, character requirements
+
+    Step 5 — Retention:
+      - Query result retention period
+
+  8.4  Create additional user accounts as needed:
+
+    Admin Panel > Users > + Create User
+
+
+================================================================================
+STEP 9: VERIFY EVERYTHING WORKS
+================================================================================
+
+  Run through this checklist:
+
+  [ ] Application loads at http://<EC2_PRIVATE_IP>/
+  [ ] Login works with the new admin password
+  [ ] Setup wizard settings are saved (check Admin > Setup Wizard)
+  [ ] Create a stored query (Admin > Stored Queries > + Create Query)
+  [ ] Run the stored query from the Run Query page
+  [ ] Results display in the sortable table
+  [ ] Export works (CSV, JSON, PDF)
+  [ ] Share button works (makes results visible to other users)
+  [ ] Query history shows the executed query
+  [ ] Create a standard user account
+  [ ] Log in as the standard user (forced password change works)
+  [ ] Standard user can run queries but cannot see Admin Panel
+  [ ] Disk usage indicator shows in the navigation bar
+  [ ] Disk usage detail page shows correct data in Admin Panel
+  [ ] Logs are being written to /opt/sqh/logs/sqh.log
+  [ ] Light/dark theme toggle works
+
+
+================================================================================
+STEP 10: ONGOING MAINTENANCE
+================================================================================
+
+  Viewing logs:
+
+    sudo journalctl -u sqh --since "1 hour ago"
+    tail -100 /opt/sqh/logs/sqh.log
+
+  Restarting the service:
+
+    sudo systemctl restart sqh
+
+  Updating the application code:
+
+    1. Upload new files to /opt/sqh/app/
+    2. sudo chown -R sqh:sqh /opt/sqh
+    3. sudo systemctl restart sqh
+
+  Updating Python dependencies:
+
+    sudo -u sqh /opt/sqh/venv/bin/pip install -r /opt/sqh/requirements.txt
+    sudo systemctl restart sqh
+
+  Backing up the database:
+
+    sudo -u sqh cp /opt/sqh/data/sqh.db /opt/sqh/data/sqh.db.backup.$(date +%Y%m%d)
+
+  Rotating the Fernet encryption key:
+    WARNING: Changing SQH_ENCRYPTION_KEY will make previously encrypted
+    credentials unreadable. You must re-enter SentinelOne API credentials
+    via the Setup Wizard after rotating the key.
+
+    1. Generate a new key
+    2. Update /etc/sqh/env
+    3. Restart the service: sudo systemctl restart sqh
+    4. Re-enter API credentials in the Setup Wizard
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+  "pysqlcipher3 fails to install":
+    Ensure libsqlcipher-dev is installed:
+      sudo apt install -y libsqlcipher-dev
+
+  "Permission denied on port 80":
+    Ensure the systemd service has AmbientCapabilities=CAP_NET_BIND_SERVICE
+    Or run on port 8080 and use iptables to redirect:
+      sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8080
+
+  "Database locked errors":
+    The SQLite WAL mode is enabled by default. If you see locking errors under
+    heavy load, ensure only one application instance is running.
+
+  "Fernet decryption failed":
+    The SQH_ENCRYPTION_KEY in /etc/sqh/env does not match the key used to
+    encrypt the stored credentials. Re-enter credentials via the Setup Wizard.
+
+  "Cannot connect from browser":
+    - Verify the EC2 security group allows inbound port 80 from your VPN CIDR
+    - Verify you are connected to the VPN
+    - Check: sudo ss -tlnp | grep :80
+
+
+================================================================================
+END OF SETUP GUIDE
+================================================================================

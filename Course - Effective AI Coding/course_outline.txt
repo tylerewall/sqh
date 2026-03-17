@@ -1,0 +1,338 @@
+================================================================================
+EFFECTIVE AI CODING — COURSE OUTLINE
+================================================================================
+A repeatable 7-module framework for building software projects with AI
+assistance, from initial concept through deployment and handoff.
+
+Target Audience: Developers, security engineers, IT professionals, and
+technical leads who want to use AI coding assistants effectively.
+
+Course Format: Each module includes:
+  - Learning objectives
+  - Core concepts (the repeatable process)
+  - Worksheet (hands-on exercises for your own project)
+  - Questionnaire (self-assessment before moving to the next module)
+
+Estimated Duration: 14-20 hours (self-paced)
+
+
+================================================================================
+MODULE 1: PLANNING — DEFINING THE PROJECT BEFORE YOU PROMPT
+================================================================================
+
+Why This Matters:
+  The single biggest mistake people make with AI coding assistants is jumping
+  straight to "build me an app." The quality of what AI produces is directly
+  proportional to the quality of what you feed it. This module teaches you how
+  to create a clear, structured project definition that eliminates ambiguity
+  before you write a single prompt.
+
+Learning Objectives:
+  - Understand why upfront planning produces better AI output
+  - Write a Project Definition Document (PDD) that an AI can follow
+  - Make architecture and infrastructure decisions before coding
+  - Define feature scope with clear boundaries (what is in vs. out)
+  - Identify constraints, roles, and rules the AI must respect
+
+Core Process (Repeatable):
+  1. Write a 1-paragraph project overview
+     - What is it? Who is it for? What problem does it solve?
+  2. Define the architecture and infrastructure
+     - Hosting, OS, compute, storage, database, network
+     - Make these decisions yourself — do not let the AI choose
+  3. Select the tech stack
+     - Backend language/framework, frontend approach, database, APIs
+     - Be explicit — "Python FastAPI" not "a web framework"
+  4. Write the feature scope for this iteration
+     - List what IS included with specific behavioral rules
+     - List what is NOT included (deferred to later)
+  5. Define authentication, roles, and access rules
+     - Who can do what? What is protected? What is public?
+  6. Write UX/design rules in plain language
+     - Layout expectations, data behavior, admin vs. user areas
+     - These become constraints the AI must follow
+
+Key Principle:
+  "Decisions made by you in planning are better than decisions made by the AI
+  during coding. AI should execute your vision, not invent one."
+
+  >> Complete WORKSHEET 1 and QUESTIONNAIRE 1 before proceeding >>
+
+
+================================================================================
+MODULE 2: GOAL PROTOTYPING — SEE IT BEFORE YOU BUILD IT
+================================================================================
+
+Why This Matters:
+  A prototype lets you validate your vision in hours instead of discovering
+  problems after days of coding. AI is exceptionally good at generating
+  visual prototypes from written requirements. This module teaches you how
+  to consolidate your planning documents into a single AI-ready specification
+  and use it to produce an interactive prototype.
+
+Learning Objectives:
+  - Consolidate multiple planning documents into a single seed file
+  - Use the seed file to generate an interactive wireframe with AI
+  - Evaluate a prototype against the original requirements
+  - Identify gaps and misunderstandings before committing to code
+
+Core Process (Repeatable):
+  1. Create the seed file
+     - Merge your PDD, UX rules, and all design decisions into ONE plain
+       text file with numbered sections
+     - Use a consistent format (headers, indentation, clear labels)
+     - This file becomes the single source of truth
+  2. Prompt the AI to build an interactive wireframe
+     - "Use the seed file to build a wireframe using fake data"
+     - Request every page, every user flow, every feature
+     - Ask for realistic fake data relevant to your domain
+  3. Walk through the prototype
+     - Click every button, visit every page
+     - Compare each screen against the seed file requirements
+     - Note what is missing, wrong, or unclear
+  4. Involve stakeholders
+     - Show the prototype to anyone who will use the system
+     - Gather feedback in concrete terms (not "make it better")
+
+Key Principle:
+  "The seed file is your contract with the AI. If a requirement is not in the
+  seed file, the AI will not build it. If a requirement is ambiguous in the
+  seed file, the AI will guess — and it will guess wrong."
+
+  >> Complete WORKSHEET 2 and QUESTIONNAIRE 2 before proceeding >>
+
+
+================================================================================
+MODULE 3: FEATURE CHANGES — REFINING BEFORE BUILDING
+================================================================================
+
+Why This Matters:
+  The prototype review always reveals things you missed. This module teaches
+  you to capture those changes systematically and update the seed file before
+  building. Changing a line in a text file is infinitely cheaper than
+  refactoring working code.
+
+Learning Objectives:
+  - Use the AI as a design consultant (ask it questions, evaluate options)
+  - Document design decisions with rationale
+  - Update the seed file incrementally without losing structure
+  - Know when the seed file is "complete enough" to start building
+
+Core Process (Repeatable):
+  1. List every issue found during the prototype review
+     - Missing features, wrong behavior, unclear flows
+     - New requirements from stakeholder feedback
+  2. Ask the AI targeted design questions
+     - "What is the best way to store the API key and secret?"
+     - Evaluate the options it presents, then DECIDE (do not let it decide)
+  3. Update the seed file with each decision
+     - Tell the AI exactly what to change and where
+     - Review the changes to confirm they match your intent
+  4. Re-read the complete seed file
+     - Does it still make sense as a whole?
+     - Are there contradictions between old sections and new additions?
+     - Is every feature described with enough detail to build?
+
+Key Principle:
+  "The time to argue about features is now. Once you tell the AI to build,
+  every change request costs 10x more in rework and confusion."
+
+  >> Complete WORKSHEET 3 and QUESTIONNAIRE 3 before proceeding >>
+
+
+================================================================================
+MODULE 4: PROJECT CREATION — DIRECTED AI CODING
+================================================================================
+
+Why This Matters:
+  This is the module most people try to start with. But by now you have a
+  comprehensive seed file that tells the AI exactly what to build, a
+  validated prototype that proves the design works, and clear decisions on
+  every ambiguous point. The AI can now generate high-quality code because
+  you did the hard work upfront.
+
+Learning Objectives:
+  - Instruct the AI to build from the seed file, not from vague descriptions
+  - Review AI-generated code for correctness and security
+  - Fix bugs by describing the symptom, not prescribing the solution
+  - Understand the generated code well enough to maintain it
+
+Core Process (Repeatable):
+  1. Give the AI the seed file and tell it to build
+     - "Use the seed file to create the program in [folder]"
+     - Also request deployment documentation in the same pass
+  2. Review the generated project structure
+     - Does the file layout make sense?
+     - Are all features from the seed file represented in the code?
+  3. Test incrementally
+     - Do not wait until everything is built to test
+     - Start with: does it start up? Can you log in? Does navigation work?
+     - Report bugs to the AI with the exact symptom
+       ("create user button not working" not "fix the admin panel")
+  4. Request fixes one at a time
+     - Describe what you expected vs. what happened
+     - Let the AI diagnose and fix — review its explanation
+     - Verify the fix before moving to the next issue
+  5. Generate deployment artifacts
+     - Dependency files (requirements.txt, package.json, etc.)
+     - Setup/deployment guide
+     - Configuration templates
+
+Key Principle:
+  "You are the architect. The AI is the builder. Review everything it
+  produces. If you do not understand a piece of code, ask the AI to explain
+  it before accepting it."
+
+  >> Complete WORKSHEET 4 and QUESTIONNAIRE 4 before proceeding >>
+
+
+================================================================================
+MODULE 5: DEPLOYMENT AND SETUP — FROM CODE TO RUNNING SYSTEM
+================================================================================
+
+Why This Matters:
+  Code on your laptop is not a product. This module covers taking the
+  AI-generated application and deploying it to a real environment. AI can
+  generate setup guides and configuration files, but you must understand
+  each step and verify it works on actual infrastructure.
+
+Learning Objectives:
+  - Use AI-generated setup guides as a starting point, not a script
+  - Verify each deployment step before proceeding to the next
+  - Configure secrets and credentials securely
+  - Troubleshoot deployment issues with AI assistance
+
+Core Process (Repeatable):
+  1. Prepare the target environment
+     - Provision infrastructure (server, storage, network)
+     - Install system-level dependencies
+  2. Follow the AI-generated setup guide step by step
+     - Run each command individually, do not batch blindly
+     - If a step fails, describe the error to the AI and get a fix
+  3. Configure secrets and environment
+     - Generate all keys, tokens, and passphrases
+     - Store them according to the security design in the seed file
+     - Verify file permissions and ownership
+  4. Start the application and verify
+     - Check logs for startup errors
+     - Walk through the same flows you tested in the prototype
+  5. Perform initial configuration
+     - Admin account setup, password change
+     - Integration configuration (API keys, external services)
+     - Create user accounts
+
+Key Principle:
+  "AI-generated setup guides are 90% correct. The 10% that is wrong will
+  cost you hours if you do not verify each step. Trust but verify."
+
+  >> Complete WORKSHEET 5 and QUESTIONNAIRE 5 before proceeding >>
+
+
+================================================================================
+MODULE 6: TESTING AND VALIDATION — PROVING IT WORKS
+================================================================================
+
+Why This Matters:
+  AI-generated code can have subtle bugs that only appear under specific
+  conditions. This module teaches you a systematic approach to testing that
+  catches issues before your users do.
+
+Learning Objectives:
+  - Create a test plan from the seed file requirements
+  - Test every feature systematically (not just the happy path)
+  - Test edge cases, error conditions, and security boundaries
+  - Use AI to help diagnose and fix issues found during testing
+
+Core Process (Repeatable):
+  1. Build the test plan from the seed file
+     - Every numbered feature in the seed file becomes a test case
+     - For each feature: what is the expected behavior?
+  2. Functional testing
+     - Walk through every user flow (login, core features, admin)
+     - Test with each user role
+  3. Edge case and error testing
+     - What happens with bad input? Empty fields? Huge data?
+     - What happens when external services are down?
+     - What happens at resource limits (disk full, session timeout)?
+  4. Security testing
+     - Can a standard user access admin endpoints?
+     - Are credentials stored encrypted?
+     - Are sessions invalidated properly?
+     - Are logs free of sensitive data?
+  5. Fix and retest
+     - Report each bug to the AI with exact reproduction steps
+     - Verify the fix does not break other features
+
+Key Principle:
+  "If you did not test it, it does not work. AI is confident about code that
+  is wrong. Your job is to find where it is wrong before your users do."
+
+  >> Complete WORKSHEET 6 and QUESTIONNAIRE 6 before proceeding >>
+
+
+================================================================================
+MODULE 7: HANDOFF AND ITERATION — MAKING IT LAST
+================================================================================
+
+Why This Matters:
+  A project is not done when the code works. It is done when other people can
+  use it, maintain it, and extend it without you. This module covers
+  documentation, knowledge transfer, and planning the next iteration.
+
+Learning Objectives:
+  - Assemble a complete documentation package
+  - Transfer knowledge to the team effectively
+  - Identify improvements for the next iteration
+  - Apply this framework to your next project
+
+Core Process (Repeatable):
+  1. Assemble the documentation package
+     - Project requirements (the seed file)
+     - Setup/deployment guide
+     - Project steps overview
+     - Architecture decisions and rationale
+  2. Conduct knowledge transfer
+     - Walk the team through the application
+     - Demonstrate admin functions
+     - Explain backup, recovery, and maintenance procedures
+  3. Collect feedback
+     - What works well?
+     - What is frustrating or missing?
+     - What would make the biggest impact if added next?
+  4. Plan the next iteration
+     - Prioritize feedback into a backlog
+     - Start a new seed file for Iteration 2
+     - Apply everything you learned from this iteration
+
+Key Principle:
+  "The seed file from this iteration becomes the foundation for the next.
+  Each cycle gets faster because you understand the process better and the
+  AI has more context to work with."
+
+  >> Complete WORKSHEET 7 and QUESTIONNAIRE 7 >>
+
+
+================================================================================
+COURSE SUMMARY — THE REPEATABLE FRAMEWORK
+================================================================================
+
+  1. PLAN       — Define the project in plain language before prompting
+  2. PROTOTYPE  — See it with fake data before building it for real
+  3. REFINE     — Capture every change in the seed file before coding
+  4. BUILD      — Direct the AI with the seed file, review everything
+  5. DEPLOY     — Follow the guide step by step, verify each one
+  6. TEST       — Prove every feature works, fix what does not
+  7. HAND OFF   — Document, transfer, plan the next iteration
+
+The seed file is the thread that runs through every step. It starts as a
+rough outline in Module 1, becomes a full specification by Module 3, drives
+code generation in Module 4, and serves as the test plan in Module 6.
+
+If you remember one thing from this course:
+  "The quality of AI-generated code is a direct reflection of the quality
+  of the instructions you give it. Plan more, prompt less."
+
+
+================================================================================
+END OF COURSE OUTLINE
+================================================================================

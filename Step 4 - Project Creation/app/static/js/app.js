@@ -4,6 +4,8 @@ const SQH = (() => {
   let selectedQuery = null;
   let currentResults = [];
   let currentHistoryId = null;
+  let runningQueries = [];
+  let pollingTimer = null;
   let sortCol = null;
   let sortAsc = true;
   let wizardStep = 1;
@@ -100,6 +102,7 @@ const SQH = (() => {
     document.getElementById("nav-admin").classList.toggle("hidden", currentUser.role !== "admin");
     loadDiskIndicator();
     loadQueries();
+    loadRunningOnStart();
   }
 
   // ── Navigation ──
@@ -204,27 +207,103 @@ const SQH = (() => {
       if (el) paramValues[p.name] = el.value;
     });
 
-    document.getElementById("results-area").classList.add("hidden");
-    document.getElementById("query-loading").classList.remove("hidden");
-
     try {
       const data = await api(`/api/queries/${selectedQuery.id}/run`, {
         method: "POST",
         body: JSON.stringify({ param_values: paramValues }),
       });
       if (!data) return;
-      currentResults = data.data || [];
-      currentHistoryId = data.history_id;
-      sortCol = null;
-      renderResults();
-      document.getElementById("results-area").classList.remove("hidden");
-      toast(`Query completed - ${data.count} results`, "success");
-    } catch (e) {
-      document.getElementById("results-area").innerHTML = `<div class="card"><div class="alert alert-danger">${esc(e.message)}</div></div>`;
-      document.getElementById("results-area").classList.remove("hidden");
-    } finally {
-      document.getElementById("query-loading").classList.add("hidden");
+      toast(`"${data.query_name}" submitted — running in background`, "info");
+      runningQueries.push({ history_id: data.history_id, query_name: data.query_name, started: new Date() });
+      renderRunningQueries();
+      startPolling();
+    } catch {}
+  }
+
+  function renderRunningQueries() {
+    const panel = document.getElementById("running-queries");
+    if (!runningQueries.length) {
+      panel.classList.add("hidden");
+      return;
     }
+    panel.classList.remove("hidden");
+    panel.innerHTML = `
+      <div class="card">
+        <div class="card-header">Running Queries (${runningQueries.length})</div>
+        ${runningQueries.map(rq => `
+          <div class="running-query-row">
+            <div class="running-query-info">
+              <div class="spinner-sm"></div>
+              <div>
+                <div style="font-weight:500">${esc(rq.query_name)}</div>
+                <div class="text-sm text-muted">Started ${_timeAgo(rq.started)}</div>
+              </div>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="SQH.cancelQuery(${rq.history_id})">Cancel</button>
+          </div>
+        `).join("")}
+      </div>`;
+  }
+
+  function _timeAgo(d) {
+    const s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 5) return "just now";
+    if (s < 60) return s + "s ago";
+    return Math.floor(s / 60) + "m " + (s % 60) + "s ago";
+  }
+
+  function startPolling() {
+    if (pollingTimer) return;
+    pollingTimer = setInterval(pollRunningQueries, 3000);
+  }
+
+  function stopPolling() {
+    if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null; }
+  }
+
+  async function pollRunningQueries() {
+    if (!runningQueries.length) { stopPolling(); renderRunningQueries(); return; }
+
+    const still = [];
+    for (const rq of runningQueries) {
+      try {
+        const data = await api(`/api/queries/status/${rq.history_id}`);
+        if (!data) { still.push(rq); continue; }
+        if (data.status === "running") {
+          still.push(rq);
+        } else if (data.status === "success") {
+          toast(`"${rq.query_name}" completed — ${data.result_count} results`, "success");
+        } else if (data.status === "cancelled") {
+          toast(`"${rq.query_name}" cancelled`, "info");
+        } else {
+          toast(`"${rq.query_name}" failed: ${data.error_message || "unknown error"}`, "error");
+        }
+      } catch { still.push(rq); }
+    }
+    runningQueries = still;
+    renderRunningQueries();
+    if (!runningQueries.length) stopPolling();
+  }
+
+  async function cancelQuery(historyId) {
+    try {
+      await api(`/api/queries/cancel/${historyId}`, { method: "POST" });
+      runningQueries = runningQueries.filter(rq => rq.history_id !== historyId);
+      renderRunningQueries();
+      toast("Query cancelled", "info");
+    } catch {}
+  }
+
+  async function loadRunningOnStart() {
+    try {
+      const data = await api("/api/queries/running");
+      if (!data || !data.running.length) return;
+      data.running.forEach(r => {
+        runningQueries.push({ history_id: r.id, query_name: r.query_name, started: new Date(r.executed_at) });
+      });
+      renderRunningQueries();
+      startPolling();
+    } catch {}
   }
 
   // ── Results Table ──
@@ -322,7 +401,7 @@ const SQH = (() => {
       history.map(h => {
         const params = typeof h.params_json === "string" ? h.params_json : JSON.stringify(h.params_json);
         const paramShort = params.length > 40 ? params.slice(0, 37) + "..." : params;
-        const statusCls = h.status === "success" ? "badge-success" : h.status === "error" ? "badge-danger" : "badge-warning";
+        const statusCls = h.status === "success" ? "badge-success" : h.status === "error" ? "badge-danger" : h.status === "cancelled" ? "badge-muted" : "badge-warning";
         return `<tr>
           <td style="font-weight:500">${esc(h.query_name)}</td>
           <td><span class="badge badge-info">${esc(h.category)}</span></td>
@@ -703,7 +782,7 @@ const SQH = (() => {
   document.addEventListener("DOMContentLoaded", init);
 
   return {
-    nav, logout, filterQueries, selectQuery, runQuery, sortResults, filterResults,
+    nav, logout, filterQueries, selectQuery, runQuery, cancelQuery, sortResults, filterResults,
     toggleExport, exportData, shareResults, viewHistoryResults, adminTab,
     showCreateUserModal, createUser, showResetPwModal, resetPassword, toggleUserStatus,
     showCreateQueryModal, createQuery, showEditQueryModal, updateQuery, deleteQuery,

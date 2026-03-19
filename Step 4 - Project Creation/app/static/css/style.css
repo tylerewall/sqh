@@ -195,3 +195,9 @@ tr:hover{background:var(--bg2)}
 .bulk-section:last-child{border-bottom:none}
 .bulk-section-title{font-weight:500;font-size:.9rem}
 .bulk-section-desc{font-size:.85rem;color:var(--text2)}
+
+/* ===== Running Queries Panel ===== */
+.running-query-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.running-query-row:last-child{border-bottom:none}
+.running-query-info{display:flex;align-items:center;gap:12px}
+.spinner-sm{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}

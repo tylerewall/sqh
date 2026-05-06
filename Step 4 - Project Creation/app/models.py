@@ -55,6 +55,9 @@ class UpdateStoredQueryRequest(BaseModel):
 
 class RunQueryRequest(BaseModel):
     param_values: dict[str, str] = {}
+    from_date: str = ""
+    to_date: str = ""
+    force_refresh: bool = False
 
 
 class BulkDeleteHistoryRequest(BaseModel):
@@ -63,5 +66,29 @@ class BulkDeleteHistoryRequest(BaseModel):
     end_date: str | None = None
 
 
+class CreateFolderRequest(BaseModel):
+    name: str
+    parent_id: int | None = None
+
+
+class UpdateFolderRequest(BaseModel):
+    name: str | None = None
+    parent_id: int | None = None
+    sort_order: int | None = None
+
+
+class ReorderFoldersRequest(BaseModel):
+    order: list[int]
+
+
+class MoveQueryToFolderRequest(BaseModel):
+    folder_id: int | None = None
+
+
 class SaveConfigRequest(BaseModel):
     settings: dict[str, str]
+
+
+class CreateAIToolRequest(BaseModel):
+    keyword: str
+    display_name: str

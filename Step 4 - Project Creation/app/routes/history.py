@@ -1,12 +1,14 @@
 import json
 import csv
+import gzip
 import io
 import logging
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from app.database import get_db
 from app.auth import require_auth
+from app.fast_json import dumps as fj_dumps, loads as fj_loads
 
 logger = logging.getLogger("sqh.routes.history")
 router = APIRouter(prefix="/api/history", tags=["history"])
@@ -50,8 +52,25 @@ async def list_history(request: Request, scope: str = "all", status: str = "all"
     return {"history": history}
 
 
+def _load_result_data(result_row) -> list:
+    """Decompress (if gzipped) and parse stored result data."""
+    if not result_row:
+        return []
+    raw = result_row["result_data"]
+    if isinstance(raw, (bytes, memoryview)):
+        raw_bytes = bytes(raw)
+        try:
+            raw_bytes = gzip.decompress(raw_bytes)
+        except (gzip.BadGzipFile, OSError):
+            pass
+        return fj_loads(raw_bytes)
+    if isinstance(raw, str):
+        return fj_loads(raw)
+    return []
+
+
 @router.get("/{history_id}/results")
-async def get_results(history_id: int, request: Request):
+async def get_results(history_id: int, request: Request, offset: int = 0, limit: int = 200):
     user = await require_auth(request)
     with get_db() as conn:
         hist = conn.execute("SELECT * FROM query_history WHERE id = ?", (history_id,)).fetchone()
@@ -68,15 +87,34 @@ async def get_results(history_id: int, request: Request):
             "SELECT result_data FROM query_results WHERE history_id = ?", (history_id,)
         ).fetchone()
 
-        data = json.loads(result_row["result_data"]) if result_row else []
-        return {
-            "history_id": history_id,
-            "query_name": hist["query_name"],
-            "category": hist["category"],
-            "status": hist["status"],
-            "count": len(data),
-            "data": data,
-        }
+        total = hist["result_count"] or 0
+
+    all_data = _load_result_data(result_row)
+    page = all_data[offset:offset + limit]
+    has_more = (offset + limit) < len(all_data)
+
+    resp = {
+        "history_id": history_id,
+        "stored_query_id": hist["stored_query_id"],
+        "query_name": hist["query_name"],
+        "category": hist["category"],
+        "status": hist["status"],
+        "count": total,
+        "offset": offset,
+        "has_more": has_more,
+        "data": page,
+    }
+
+    body = fj_dumps(resp)
+    accept_enc = request.headers.get("accept-encoding", "")
+    if "gzip" in accept_enc:
+        compressed = gzip.compress(body, compresslevel=1)
+        return Response(
+            content=compressed,
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"},
+        )
+    return Response(content=body, media_type="application/json")
 
 
 @router.post("/{history_id}/share")
@@ -116,7 +154,7 @@ async def export_results(history_id: int, fmt: str, request: Request):
         result_row = conn.execute(
             "SELECT result_data FROM query_results WHERE history_id = ?", (history_id,)
         ).fetchone()
-        data = json.loads(result_row["result_data"]) if result_row else []
+        data = _load_result_data(result_row)
 
     if fmt == "json":
         return StreamingResponse(
@@ -154,7 +192,7 @@ async def export_results(history_id: int, fmt: str, request: Request):
         if data:
             headers = list(data[0].keys())
             table_data = [headers]
-            for row in data[:200]:
+            for row in data:
                 table_data.append([str(row.get(h, ""))[:50] for h in headers])
             t = Table(table_data, repeatRows=1)
             t.setStyle(TableStyle([

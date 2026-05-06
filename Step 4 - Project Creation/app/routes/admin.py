@@ -7,6 +7,7 @@ from app.auth import require_admin, hash_password, validate_password
 from app.models import (
     CreateUserRequest, UpdateUserRequest, ResetPasswordRequest,
     CreateStoredQueryRequest, UpdateStoredQueryRequest, BulkDeleteHistoryRequest,
+    CreateFolderRequest, UpdateFolderRequest, ReorderFoldersRequest, MoveQueryToFolderRequest,
 )
 
 logger = logging.getLogger("sqh.routes.admin")
@@ -245,4 +246,76 @@ async def delete_history_entry(history_id: int, request: Request):
         conn.execute("DELETE FROM query_results WHERE history_id = ?", (history_id,))
         conn.execute("DELETE FROM query_history WHERE id = ?", (history_id,))
     logger.info("Admin deleted history entry id=%d", history_id)
+    return {"ok": True}
+
+
+# ── Folder Management ─────────────────────────────────────────────────────────
+
+@router.get("/folders")
+async def list_folders(request: Request):
+    await require_admin(request)
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, name, parent_id, sort_order, created_at "
+            "FROM query_folders ORDER BY sort_order, name"
+        ).fetchall()
+    return {"folders": [dict(r) for r in rows]}
+
+
+@router.post("/folders")
+async def create_folder(body: CreateFolderRequest, request: Request):
+    await require_admin(request)
+    with get_db() as conn:
+        max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM query_folders").fetchone()[0]
+        cursor = conn.execute(
+            "INSERT INTO query_folders (name, parent_id, sort_order) VALUES (?, ?, ?)",
+            (body.name, body.parent_id, max_order + 1),
+        )
+    logger.info("Admin created folder: %s (id=%d)", body.name, cursor.lastrowid)
+    return {"ok": True, "id": cursor.lastrowid}
+
+
+@router.put("/folders/{folder_id}")
+async def update_folder(folder_id: int, body: UpdateFolderRequest, request: Request):
+    await require_admin(request)
+    updates, params = [], []
+    if body.name is not None:
+        updates.append("name = ?"); params.append(body.name)
+    if body.sort_order is not None:
+        updates.append("sort_order = ?"); params.append(body.sort_order)
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    params.append(folder_id)
+    with get_db() as conn:
+        conn.execute(f"UPDATE query_folders SET {', '.join(updates)} WHERE id = ?", params)
+    logger.info("Admin updated folder id=%d", folder_id)
+    return {"ok": True}
+
+
+@router.delete("/folders/{folder_id}")
+async def delete_folder(folder_id: int, request: Request):
+    await require_admin(request)
+    with get_db() as conn:
+        conn.execute("UPDATE stored_queries SET folder_id = NULL WHERE folder_id = ?", (folder_id,))
+        conn.execute("DELETE FROM query_folders WHERE id = ?", (folder_id,))
+    logger.info("Admin deleted folder id=%d", folder_id)
+    return {"ok": True}
+
+
+@router.post("/folders/reorder")
+async def reorder_folders(body: ReorderFoldersRequest, request: Request):
+    await require_admin(request)
+    with get_db() as conn:
+        for idx, fid in enumerate(body.order):
+            conn.execute("UPDATE query_folders SET sort_order = ? WHERE id = ?", (idx, fid))
+    logger.info("Admin reordered folders: %s", body.order)
+    return {"ok": True}
+
+
+@router.put("/queries/{query_id}/folder")
+async def move_query_to_folder(query_id: int, body: MoveQueryToFolderRequest, request: Request):
+    await require_admin(request)
+    with get_db() as conn:
+        conn.execute("UPDATE stored_queries SET folder_id = ? WHERE id = ?", (body.folder_id, query_id))
+    logger.info("Admin moved query id=%d to folder_id=%s", query_id, body.folder_id)
     return {"ok": True}

@@ -4,5 +4,6 @@ pysqlcipher3>=1.2
 cryptography>=44.0
 bcrypt>=4.2
 httpx>=0.28
+orjson>=3.10
 python-multipart>=0.0.12
 reportlab>=4.2

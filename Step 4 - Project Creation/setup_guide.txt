@@ -62,7 +62,6 @@ STEP 3: UPLOAD THE APPLICATION CODE
 
   Then move into place:
 
-    sudo cp -r /tmp/sqh-upload/app /opt/sqh/
     sudo cp /tmp/sqh-upload/run.py /opt/sqh/
     sudo cp /tmp/sqh-upload/requirements.txt /opt/sqh/
     sudo chown -R sqh:sqh /opt/sqh
@@ -148,7 +147,6 @@ STEP 6: CREATE THE SYSTEMD SERVICE
     ExecStart=/opt/sqh/venv/bin/python run.py
     Restart=always
     RestartSec=5
-
     # Security hardening
     NoNewPrivileges=yes
     ProtectSystem=strict
@@ -274,9 +272,36 @@ STEP 10: ONGOING MAINTENANCE
 
   Updating the application code:
 
-    1. Upload new files to /opt/sqh/app/
-    2. sudo chown -R sqh:sqh /opt/sqh
-    3. sudo systemctl restart sqh
+    From your local machine (in the "Step 4 - Project Creation" directory):
+
+    a) Create staging dir and upload files:
+
+       ssh -i ~/Downloads/sqh.pem ubuntu@<EC2_IP> "mkdir -p /tmp/sqh-upload"
+
+       scp -i ~/Downloads/sqh.pem -r \
+         "./app" "./run.py" "./requirements.txt" "./seed_queries.py" \
+         ubuntu@<EC2_IP>:/tmp/sqh-upload/
+
+    b) SSH into the server and deploy:
+
+       ssh -i ~/Downloads/sqh.pem ubuntu@<EC2_IP>
+
+       sudo systemctl stop sqh
+       sudo cp -r /tmp/sqh-upload/app /opt/sqh/app
+       sudo cp /tmp/sqh-upload/run.py /opt/sqh/
+       sudo cp /tmp/sqh-upload/requirements.txt /opt/sqh/
+       sudo cp /tmp/sqh-upload/seed_queries.py /opt/sqh/
+       sudo chown -R sqh:sqh /opt/sqh
+       sudo systemctl start sqh
+
+    c) Verify and clean up:
+
+       sudo systemctl status sqh
+       rm -rf /tmp/sqh-upload
+
+    d) (Optional) Re-seed queries if the database was reset:
+
+       sudo -u sqh bash -c 'set -a && source /etc/sqh/env && set +a && /opt/sqh/venv/bin/python /opt/sqh/seed_queries.py'
 
   Updating Python dependencies:
 

@@ -12,7 +12,7 @@ from app.config import LOG_DIR
 from app.database import init_db
 from app.auth import cleanup_expired_sessions
 from app.disk_monitor import run_fifo_cleanup, run_retention_cleanup
-from app.routes import auth, queries, history, admin, system
+from app.routes import auth, queries, history, admin, system, ai_tools
 
 
 def setup_logging():
@@ -53,7 +53,8 @@ async def background_tasks():
 async def lifespan(app: FastAPI):
     setup_logging()
     logger = logging.getLogger("sqh")
-    logger.info("Security Query Hub starting up")
+    from app.fast_json import BACKEND as _json_backend
+    logger.info("Security Query Hub starting up (json=%s)", _json_backend)
     init_db()
     task = asyncio.create_task(background_tasks())
     yield
@@ -72,6 +73,7 @@ app.include_router(queries.router)
 app.include_router(history.router)
 app.include_router(admin.router)
 app.include_router(system.router)
+app.include_router(ai_tools.router)
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

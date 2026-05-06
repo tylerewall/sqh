@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,7 +17,7 @@
         <path d="M12 8v4m0 2h.01" stroke-linecap="round"/>
       </svg>
       <h1>Security Query Hub</h1>
-      <p class="subtitle">SentinelOne Deep Visibility Interface</p>
+      <p class="subtitle">Deep Visibility Query Interface</p>
     </div>
     <div id="login-error" class="alert alert-danger hidden"></div>
     <div class="form-group">
@@ -72,9 +72,9 @@
         <span>Security Query Hub</span>
       </a>
       <div class="topnav-links">
-        <a href="#" data-page="queries" class="active" onclick="SQH.nav('queries')">Run Query</a>
-        <a href="#" data-page="history" onclick="SQH.nav('history')">History</a>
-        <a href="#" data-page="admin" id="nav-admin" class="hidden" onclick="SQH.nav('admin')">Admin Panel</a>
+        <a href="#" data-page="queries" class="active" onclick="SQH.nav('queries')">Deep Visibility</a>
+        <a href="#" data-page="history" onclick="SQH.nav('history')">Query History</a>
+        <a href="#" data-page="admin" id="nav-admin" class="hidden" onclick="SQH.nav('admin')">Administration</a>
       </div>
     </div>
     <div class="topnav-right">
@@ -84,8 +84,8 @@
         <span class="disk-pct" id="disk-mini-pct">--%</span>
       </div>
       <button class="theme-toggle" id="btn-theme" title="Toggle theme">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon-sun"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon-moon" class="hidden"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon-sun" class="hidden"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon-moon"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
       </button>
       <div class="user-menu" id="user-menu">
         <div class="user-avatar" id="user-avatar">?</div>
@@ -102,32 +102,51 @@
     </div>
   </nav>
 
-  <!-- Page: Run Query -->
-  <div id="page-queries" class="page-content">
-    <div class="page-header">
-      <div>
-        <h2>Run Query</h2>
-        <p class="text-sm text-muted">Select a stored query, fill in parameters, and execute</p>
+  <!-- Page: Deep Visibility -->
+  <div id="page-queries" class="page-content" style="padding:0;max-width:100%">
+    <!-- Global Search Time Bar -->
+    <div class="global-time-bar" id="global-time-bar">
+      <div class="global-time-left">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span class="global-time-label">Search Time</span>
+      </div>
+      <div class="global-time-buttons">
+        <button class="g-time-btn" data-range="15m" onclick="SQH.setGlobalTime('15m',this)">15 Min</button>
+        <button class="g-time-btn" data-range="30m" onclick="SQH.setGlobalTime('30m',this)">30 Min</button>
+        <button class="g-time-btn active" data-range="1h" onclick="SQH.setGlobalTime('1h',this)">1 Hour</button>
+        <button class="g-time-btn" data-range="24h" onclick="SQH.setGlobalTime('24h',this)">24 Hours</button>
+        <button class="g-time-btn" data-range="3d" onclick="SQH.setGlobalTime('3d',this)">3 Days</button>
+        <button class="g-time-btn" data-range="7d" onclick="SQH.setGlobalTime('7d',this)">7 Days</button>
+        <button class="g-time-btn" data-range="14d" onclick="SQH.setGlobalTime('14d',this)">14 Days</button>
+        <button class="g-time-btn" data-range="30d" onclick="SQH.setGlobalTime('30d',this)">30 Days</button>
+        <button class="g-time-btn" data-range="custom" onclick="SQH.setGlobalTime('custom',this)">Custom</button>
+      </div>
+      <div class="global-time-custom hidden" id="global-custom-fields">
+        <input type="date" id="global-from-date" title="Start date">
+        <span class="global-time-sep">to</span>
+        <input type="date" id="global-to-date" title="End date">
       </div>
     </div>
     <div class="query-grid">
       <div class="query-sidebar">
         <div class="category-filter" id="category-filter"></div>
         <div class="query-list" id="query-list">
-          <div class="empty-state">Loading stored queries...</div>
+          <div class="empty-state">Loading queries...</div>
         </div>
       </div>
-      <div class="query-detail card" id="query-detail">
-        <div class="empty-state">Select a query from the list to get started</div>
+      <div class="query-main" id="query-main">
+        <div class="query-detail" id="query-detail">
+          <div class="empty-state">Select a query to begin threat hunting</div>
+        </div>
+        <div id="running-queries" class="hidden"></div>
+        <div id="results-area" class="hidden"></div>
       </div>
     </div>
-    <div id="running-queries" class="mt-lg hidden"></div>
-    <div id="results-area" class="mt-lg hidden"></div>
   </div>
 
   <!-- Page: History -->
   <div id="page-history" class="page-content hidden">
-    <div class="page-header"><div><h2>Query History</h2><p class="text-sm text-muted">Your executed queries and shared results</p></div></div>
+    <div class="page-header"><div><h2>Query History</h2><p class="text-sm text-muted">Executed queries and shared results</p></div></div>
     <div class="history-filters">
       <select id="history-scope"><option value="all">All (Mine + Shared)</option><option value="mine">My Queries Only</option><option value="shared">Shared Only</option></select>
       <select id="history-status"><option value="all">All Statuses</option><option value="success">Success</option><option value="error">Error</option></select>
@@ -142,6 +161,7 @@
       <div class="admin-sidebar">
         <div class="sidebar-heading">Management</div>
         <a href="#" data-admin="users" class="active" onclick="SQH.adminTab('users')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Users</a>
+        <a href="#" data-admin="folders" onclick="SQH.adminTab('folders')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Folders</a>
         <a href="#" data-admin="queries" onclick="SQH.adminTab('queries')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Stored Queries</a>
         <a href="#" data-admin="hist-mgmt" onclick="SQH.adminTab('hist-mgmt')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> History Mgmt</a>
         <div class="sidebar-heading">System</div>
@@ -161,6 +181,7 @@
 <!-- Toast Container -->
 <div class="toast-container" id="toast-container"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="/static/js/app.js"></script>
 </body>
 </html>

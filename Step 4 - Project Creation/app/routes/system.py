@@ -10,12 +10,13 @@ from app.models import SaveConfigRequest
 logger = logging.getLogger("sqh.routes.system")
 router = APIRouter(prefix="/api/system", tags=["system"])
 
-SENSITIVE_KEYS = {"s1_api_key", "s1_api_secret"}
+SENSITIVE_KEYS = {"s1_api_key", "s1_api_secret", "openai_api_key", "virustotal_api_key", "apivoid_api_key"}
 CONFIG_KEYS = [
     "s1_base_url", "s1_api_key", "s1_api_secret", "s1_api_version",
     "disk_cleanup_threshold", "session_timeout_hours",
     "pw_min_length", "pw_require_upper", "pw_require_lower",
     "pw_require_number", "pw_require_special", "retention_days",
+    "openai_api_key", "openai_model", "virustotal_api_key", "apivoid_api_key",
 ]
 
 

@@ -128,7 +128,7 @@ async def _execute_in_background(history_id: int, dv_query: str, query_name: str
                                   force_refresh: bool = False):
     """Run the S1 DV query and update the history entry when done.
     If a fresh cached result exists (within CACHE_MAX_AGE_SECONDS), reuse it instantly."""
-    logger.info("User %s executing query '%s' (history_id=%d)", username, query_name, history_id)
+    logger.info("User %s executing query '%s' (history_id=%d) from=%s to=%s", username, query_name, history_id, from_date, to_date)
     dedup = _is_ai_dashboard_query(query_name)
     t0 = time.time()
     try:
@@ -167,7 +167,8 @@ async def _execute_in_background(history_id: int, dv_query: str, query_name: str
         result = await run_dv_query(dv_query, from_date=from_date, to_date=to_date, history_id=history_id, deduplicate=dedup, on_first_page=_save_live)
         elapsed = round(time.time() - t0, 2)
         data = result.get("data", [])
-        result_count = result.get("count", 0)
+        result_count = result.get("count", 0) or len(data)
+        capped = result.get("capped", False)
 
         t_save = time.time()
         raw_bytes = fj_dumps(data)
@@ -175,18 +176,23 @@ async def _execute_in_background(history_id: int, dv_query: str, query_name: str
 
         run_fifo_cleanup()
 
+        # If results are large (>=19K), mark as success but include a warning message
+        error_msg = None
+        if result_count >= 19000:
+            error_msg = f"too many results:{result_count}"
+
         with get_db() as conn:
             conn.execute(
-                "UPDATE query_history SET status = 'success', result_count = ? WHERE id = ?",
-                (result_count, history_id),
+                "UPDATE query_history SET status = 'success', result_count = ?, error_message = ? WHERE id = ?",
+                (result_count, error_msg, history_id),
             )
             conn.execute(
                 "INSERT OR REPLACE INTO query_results (history_id, result_data, size_bytes) VALUES (?, ?, ?)",
                 (history_id, compressed, len(raw_bytes)),
             )
-        logger.info("Query complete: %d results in %ss, saved in %ss (history_id=%d, raw=%dKB, gz=%dKB)",
+        logger.info("Query complete: %d results in %ss, saved in %ss (history_id=%d, raw=%dKB, gz=%dKB, capped=%s)",
                      result_count, elapsed, round(time.time() - t_save, 2), history_id,
-                     len(raw_bytes) // 1024, len(compressed) // 1024)
+                     len(raw_bytes) // 1024, len(compressed) // 1024, capped)
 
     except asyncio.CancelledError:
         with get_db() as conn:
@@ -220,7 +226,9 @@ async def execute_query(query_id: int, body: RunQueryRequest, request: Request):
         for key, val in body.param_values.items():
             dv_query = dv_query.replace(f"{{{key}}}", val)
 
-        params_json = json.dumps(body.param_values)
+        # Include time range in params_json so cache differentiates between time ranges
+        cache_params = {**body.param_values, "_from": body.from_date, "_to": body.to_date}
+        params_json = json.dumps(cache_params, sort_keys=True)
         cursor = conn.execute(
             "INSERT INTO query_history (stored_query_id, query_name, category, params_json, user_id, status) "
             "VALUES (?, ?, ?, ?, ?, 'running')",

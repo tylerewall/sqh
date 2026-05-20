@@ -18,6 +18,7 @@ const SQH = (() => {
   let _aiToolsPanelOpen = true;
   let runningQueries = [];
   let pollingTimer = null;
+  const _shownTooManyFor = new Set();
   let sortCol = null;
   let sortAsc = true;
   let hiddenCols = new Set();
@@ -60,16 +61,16 @@ const SQH = (() => {
     overlay.innerHTML = `
       <div class="dialog-box">
         <div class="dialog-icon">&#9888;</div>
-        <h3>Too Many Results</h3>
-        <p>Your query <strong>"${esc(queryName)}"</strong> returned <strong>${count.toLocaleString()}</strong> results, which exceeds the 20,000 event limit.</p>
-        <p>This many results is unlikely to be useful. Consider narrowing your search by:</p>
+        <h3>Large Result Set</h3>
+        <p>Your query <strong>"${esc(queryName)}"</strong> returned <strong>${count.toLocaleString()}</strong> results.</p>
+        <p>All data has been retrieved, but this many results may be difficult to analyze. Consider narrowing your search for more targeted results:</p>
         <ul>
           <li>Using a shorter time range (e.g. 1 hour or 15 minutes)</li>
           <li>Adding an <code>EndpointName</code> or <code>UserName</code> filter</li>
           <li>Using more specific search terms</li>
         </ul>
         <div class="dialog-actions">
-          <button class="btn btn-primary" onclick="document.getElementById('too-many-dialog').remove()">OK</button>
+          <button class="btn btn-primary" onclick="document.getElementById('too-many-dialog').remove()">OK, Got It</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -441,14 +442,20 @@ const SQH = (() => {
           toast(`"${rq.query_name}" completed — ${data.result_count} results`, "success");
           anyFinished = true;
           lastSuccessId = rq.history_id;
+          if (data.error_message && data.error_message.startsWith("too many results:") && !_shownTooManyFor.has(rq.history_id)) {
+            _shownTooManyFor.add(rq.history_id);
+            const cnt = parseInt(data.error_message.split(":")[1]) || data.result_count;
+            _showTooManyResultsDialog(rq.query_name, cnt);
+          }
         } else if (data.status === "cancelled") {
           toast(`"${rq.query_name}" cancelled`, "info");
           anyFinished = true;
         } else {
           const errMsg = data.error_message || "unknown error";
-          if (errMsg.includes("too many")) {
+          if (errMsg.includes("too many") && !_shownTooManyFor.has(rq.history_id)) {
+            _shownTooManyFor.add(rq.history_id);
             _showTooManyResultsDialog(rq.query_name, 20000);
-          } else {
+          } else if (!errMsg.includes("too many")) {
             toast(`"${rq.query_name}" failed: ${errMsg}`, "error");
           }
           anyFinished = true;
@@ -458,7 +465,13 @@ const SQH = (() => {
     runningQueries = still;
     renderRunningQueries();
     if (!runningQueries.length) stopPolling();
-    if (anyFinished) loadHistory();
+    if (anyFinished) {
+      loadHistory();
+      const badge = document.querySelector(".streaming-badge");
+      if (badge && !runningQueries.some(rq => rq.history_id === currentHistoryId)) {
+        badge.remove();
+      }
+    }
     if (lastSuccessId) viewHistoryResults(lastSuccessId);
   }
 
@@ -486,16 +499,92 @@ const SQH = (() => {
   // ── Results Table ──
   let _allCols = [];
   let _filteredData = null;
+  let _sparseCols = new Set();
+  // Columns with >= this fraction of null/empty values are rendered narrower
+  // to make better use of horizontal screen real estate.
+  const SPARSE_COL_THRESHOLD = 0.7;
+  // Default screen real-estate budget: aim to fit this many columns across the
+  // visible table area on first render. Users can drag the right edge of any
+  // column header to resize, and per-column widths are remembered until the
+  // result set changes (next renderResults call).
+  const DEFAULT_COLS_PER_SCREEN = 8;
+  const MIN_COL_WIDTH = 40;
+  let _colWidths = {};
 
   function _getVisibleCols() {
     return _allCols.filter(c => !hiddenCols.has(c));
   }
 
+  function _isNullish(v) {
+    return v === null || v === undefined || v === "" || v === "null";
+  }
+
   function _isEmptyCol(col) {
-    return currentResults.every(r => {
-      const v = r[col];
-      return v === null || v === undefined || v === "" || v === "null";
-    });
+    return currentResults.every(r => _isNullish(r[col]));
+  }
+
+  function _computeSparseCols() {
+    _sparseCols = new Set();
+    if (!currentResults.length) return;
+    const total = currentResults.length;
+    for (const c of _allCols) {
+      let nulls = 0;
+      for (let i = 0; i < total; i++) {
+        if (_isNullish(currentResults[i][c])) nulls++;
+      }
+      const nullFrac = nulls / total;
+      if (nullFrac >= SPARSE_COL_THRESHOLD && nullFrac < 1) {
+        _sparseCols.add(c);
+      }
+    }
+  }
+
+  function _defaultColWidth() {
+    const wrap = document.getElementById("results-table-wrap");
+    const w = (wrap && wrap.clientWidth) ? wrap.clientWidth : 1200;
+    return Math.max(80, Math.floor(w / DEFAULT_COLS_PER_SCREEN));
+  }
+
+  function _colWidthFor(col, defaultW) {
+    if (_colWidths[col]) return _colWidths[col];
+    if (_sparseCols.has(col)) return Math.max(60, Math.floor(defaultW * 0.5));
+    return defaultW;
+  }
+
+  function _buildHeaderHtml(visCols) {
+    const defaultW = _defaultColWidth();
+    return visCols.map(c => {
+      const w = _colWidthFor(c, defaultW);
+      const sparseCls = _sparseCols.has(c) ? "sparse-col" : "";
+      const sortMark = sortCol === c ? (sortAsc ? "&#9650;" : "&#9660;") : "";
+      const cEsc = esc(c);
+      return `<th class="${sparseCls}" style="width:${w}px" data-col="${cEsc}" onclick="SQH.sortResults('${cEsc}')"><span class="th-label">${cEsc} ${sortMark}</span><span class="col-resizer" onmousedown="SQH._startColResize(event,'${cEsc}')"></span></th>`;
+    }).join("");
+  }
+
+  function _startColResize(e, col) {
+    e.stopPropagation();
+    e.preventDefault();
+    const handle = e.currentTarget || e.target;
+    const th = handle.closest && handle.closest("th");
+    if (!th) return;
+    const startX = e.clientX;
+    const startW = th.offsetWidth;
+    handle.classList.add("dragging");
+    document.body.classList.add("col-resizing");
+    function onMove(ev) {
+      const newW = Math.max(MIN_COL_WIDTH, startW + (ev.clientX - startX));
+      th.style.width = newW + "px";
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      handle.classList.remove("dragging");
+      document.body.classList.remove("col-resizing");
+      _colWidths[col] = th.offsetWidth;
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
   }
 
   function renderResults() {
@@ -509,6 +598,8 @@ const SQH = (() => {
     _allCols = Object.keys(currentResults[0]);
     const autoHidden = _allCols.filter(c => _isEmptyCol(c));
     hiddenCols = new Set(autoHidden);
+    _computeSparseCols();
+    _colWidths = {};
     _filteredData = null;
 
     const visCols = _getVisibleCols();
@@ -528,15 +619,21 @@ const SQH = (() => {
             <span class="results-meta">${visCols.length}/${_allCols.length} columns</span>
           </div>
           <div class="flex gap-sm">
+            <button class="btn btn-sm btn-ai-talk" onclick="SQH.letsTalkAboutThis()">ANALYZE</button>
             <input type="text" id="results-filter-input" class="search-input" placeholder="Filter events..." oninput="SQH.filterResults(this.value)">
             <button class="btn btn-sm" onclick="SQH.toggleColumnPicker(event)">Columns</button>
             <button class="btn btn-sm" onclick="SQH.shareResults()">Share</button>
             <div class="export-dropdown">
               <button class="btn btn-sm" onclick="SQH.toggleExport(event)">Export</button>
               <div class="export-menu" id="export-menu">
-                <button onclick="SQH.exportData('csv')">CSV</button>
-                <button onclick="SQH.exportData('json')">JSON</button>
-                <button onclick="SQH.exportData('pdf')">PDF</button>
+                <div class="export-section-label">Export All</div>
+                <button onclick="SQH.exportData('csv','all')">CSV</button>
+                <button onclick="SQH.exportData('json','all')">JSON</button>
+                <button onclick="SQH.exportData('pdf','all')">PDF</button>
+                <div class="export-section-label">Export Showing</div>
+                <button onclick="SQH.exportData('csv','showing')">CSV</button>
+                <button onclick="SQH.exportData('json','showing')">JSON</button>
+                <button onclick="SQH.exportData('pdf','showing')">PDF</button>
               </div>
             </div>
           </div>
@@ -545,7 +642,7 @@ const SQH = (() => {
           <div class="col-picker-header"><span>Show / Hide Columns</span><button class="btn btn-sm" onclick="SQH.resetColumns()">Show All</button></div>
           <div class="col-picker-list">${_allCols.map(c => `<label class="col-picker-item"><input type="checkbox" ${!hiddenCols.has(c) ? "checked" : ""} onchange="SQH.toggleColumn('${esc(c)}',this.checked)"> ${esc(c)}</label>`).join("")}</div>
         </div>
-        <div class="raw-results-wrap" id="results-table-wrap"><table class="raw-results-table"><thead><tr id="results-thead-tr">${visCols.map(c => `<th onclick="SQH.sortResults('${esc(c)}')">${esc(c)} ${sortCol === c ? (sortAsc ? "&#9650;" : "&#9660;") : ""}</th>`).join("")}</tr></thead><tbody id="results-tbody"></tbody></table></div>
+        <div class="raw-results-wrap" id="results-table-wrap"><table class="raw-results-table"><thead><tr id="results-thead-tr">${_buildHeaderHtml(visCols)}</tr></thead><tbody id="results-tbody"></tbody></table></div>
         ${loadMoreHtml}
       </div>`;
     area.classList.remove("hidden");
@@ -576,13 +673,16 @@ const SQH = (() => {
         let v = row[c];
         if (v === null || v === undefined) v = "";
         const vs = typeof v === "object" ? JSON.stringify(v) : String(v);
+        const isSparse = _sparseCols.has(c);
         if (c === "ThreatStatus" || c === "threatStatus") {
           const cls = vs === "Malicious" ? "badge-danger" : vs === "Suspicious" ? "badge-warning" : "badge-success";
           td.innerHTML = `<span class="badge ${cls}">${esc(vs)}</span>`;
+          if (isSparse) td.classList.add("sparse-col");
         } else {
-          td.className = "raw-cell";
+          td.className = isSparse ? "raw-cell sparse-col" : "raw-cell";
           td.textContent = vs;
         }
+        if (vs) td.title = vs;
         tr.appendChild(td);
       }
       frag.appendChild(tr);
@@ -597,7 +697,7 @@ const SQH = (() => {
     const visCols = _getVisibleCols();
     const theadTr = document.getElementById("results-thead-tr");
     if (theadTr) {
-      theadTr.innerHTML = visCols.map(c => `<th onclick="SQH.sortResults('${esc(c)}')">${esc(c)} ${sortCol === c ? (sortAsc ? "&#9650;" : "&#9660;") : ""}</th>`).join("");
+      theadTr.innerHTML = _buildHeaderHtml(visCols);
     }
     const data = _filteredData || currentResults;
     fillResultsBody(visCols, data);
@@ -605,6 +705,698 @@ const SQH = (() => {
     if (countEl) countEl.textContent = data.length;
     const meta = document.querySelector(".results-meta");
     if (meta) meta.textContent = `${visCols.length}/${_allCols.length} columns`;
+  }
+
+  // ── AI Analysis (Right-Click Context Menu) ──
+  let _contextMenuRow = null;
+
+  function _initContextMenu() {
+    document.addEventListener("contextmenu", function(e) {
+      const tr = e.target.closest("#results-tbody tr");
+      if (!tr) return;
+      e.preventDefault();
+      const rowIdx = Array.from(tr.parentElement.children).indexOf(tr);
+      const data = _filteredData || currentResults;
+      if (rowIdx < 0 || rowIdx >= data.length) return;
+      _contextMenuRow = data[rowIdx];
+      _showContextMenu(e.clientX, e.clientY);
+    });
+    document.addEventListener("click", _hideContextMenu);
+    document.addEventListener("scroll", _hideContextMenu, true);
+  }
+
+  function _showContextMenu(x, y) {
+    _hideContextMenu();
+    const menu = document.createElement("div");
+    menu.id = "ai-context-menu";
+    menu.className = "ai-context-menu";
+    menu.innerHTML = `
+      <button class="ai-context-item" onclick="SQH.analyzeRow()">
+        <span class="ai-context-icon">&#129302;</span> Investigate with AI
+      </button>`;
+    document.body.appendChild(menu);
+    const rect = menu.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 8;
+    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 8;
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+  }
+
+  function _hideContextMenu() {
+    const m = document.getElementById("ai-context-menu");
+    if (m) m.remove();
+  }
+
+  async function analyzeRow(mode) {
+    _hideContextMenu();
+    if (!_contextMenuRow) return;
+
+    const row = _contextMenuRow;
+    const queryName = _currentQueryName || "Unknown Query";
+    const queryObj = selectedQuery;
+    const queryText = queryObj ? queryObj.dv_query : "";
+
+    _showAIAnalysisPanel(row, queryName, true);
+
+    try {
+      const resp = await api("/api/ai/analyze", {
+        method: "POST",
+        body: JSON.stringify({ row_data: row, query_name: queryName, query_text: queryText }),
+      });
+      if (resp) {
+        _showAIAnalysisPanel(row, queryName, false, resp.analysis, resp.model, resp.tokens_used);
+      }
+    } catch (err) {
+      _showAIAnalysisPanel(row, queryName, false, null, null, null, err.message);
+    }
+  }
+
+  async function deepAnalyzeRow() {
+    _hideContextMenu();
+    if (!_contextMenuRow) return;
+
+    const row = _contextMenuRow;
+    _currentAnalysisRow = row;
+    const queryName = _currentQueryName || "Unknown Query";
+    const queryObj = selectedQuery;
+    const queryText = queryObj ? queryObj.dv_query : "";
+    const rowSummary = _buildRowSummary(row);
+
+    const existing = document.getElementById("ai-analysis-panel");
+    if (existing) existing.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "ai-analysis-panel";
+    overlay.className = "dialog-overlay";
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+      <div class="ai-analysis-box">
+        <div class="ai-analysis-header">
+          <h3>IOC Analysis</h3>
+          <button class="ai-close-btn" onclick="document.getElementById('ai-analysis-panel').remove()">&times;</button>
+        </div>
+        <div class="ai-event-summary">
+          <div class="ai-event-label">Event from: <strong>${esc(queryName)}</strong></div>
+          ${rowSummary}
+        </div>
+        <div id="vt-results-area">
+          <div class="deep-analyze-loading"><div class="spinner"></div><p>Running deep IOC analysis (VirusTotal, WHOIS, Wayback, reputation checks)...</p></div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    try {
+      const resp = await api("/api/ai/deep-analyze", {
+        method: "POST",
+        body: JSON.stringify({ row_data: row, query_name: queryName, query_text: queryText }),
+      });
+      const vtArea = document.getElementById("vt-results-area");
+      if (resp && vtArea) {
+        vtArea.innerHTML = _renderDeepAnalysis(resp);
+      }
+    } catch (err) {
+      const vtArea = document.getElementById("vt-results-area");
+      if (vtArea) vtArea.innerHTML = `<div class="vt-error">${esc(err.message)}</div>`;
+    }
+  }
+
+  let _currentAnalysisRow = null;
+
+  function _showAIAnalysisPanel(row, queryName, loading, analysis, model, tokens, error) {
+    const existing = document.getElementById("ai-analysis-panel");
+    if (existing) existing.remove();
+
+    _currentAnalysisRow = row;
+
+    const overlay = document.createElement("div");
+    overlay.id = "ai-analysis-panel";
+    overlay.className = "dialog-overlay";
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    let content = "";
+    if (loading) {
+      content = `<div class="ai-loading"><div class="spinner"></div><p>Analyzing event with AI...</p></div>`;
+    } else if (error) {
+      content = `<div class="ai-error"><p>${esc(error)}</p></div>`;
+    } else {
+      const formatted = _formatAIResponse(analysis);
+      content = `<div class="ai-response">${formatted}</div>
+        <div class="ai-action-bar"><button class="btn btn-analyze" onclick="SQH.deepAnalyze()">INVESTIGATE</button></div>
+        <div class="ai-meta">Model: ${esc(model)} &middot; ${tokens} tokens</div>`;
+    }
+
+    const rowSummary = _buildRowSummary(row);
+
+    overlay.innerHTML = `
+      <div class="ai-analysis-box">
+        <div class="ai-analysis-header">
+          <h3>AI Threat Analysis</h3>
+          <button class="ai-close-btn" onclick="document.getElementById('ai-analysis-panel').remove()">&times;</button>
+        </div>
+        <div class="ai-event-summary">
+          <div class="ai-event-label">Event from: <strong>${esc(queryName)}</strong></div>
+          ${rowSummary}
+        </div>
+        <div class="ai-analysis-body">
+          ${content}
+        </div>
+        <div id="vt-results-area"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  async function deepAnalyze() {
+    if (!_currentAnalysisRow) return;
+    const vtArea = document.getElementById("vt-results-area");
+    if (!vtArea) return;
+
+    const queryName = _currentQueryName || "Unknown Query";
+    const queryObj = selectedQuery;
+    const queryText = queryObj ? queryObj.dv_query : "";
+
+    vtArea.innerHTML = `<div class="deep-analyze-loading"><div class="spinner"></div><p>Running deep IOC analysis (VirusTotal, WHOIS, Wayback, reputation checks)...</p></div>`;
+
+    try {
+      const resp = await api("/api/ai/deep-analyze", {
+        method: "POST",
+        body: JSON.stringify({ row_data: _currentAnalysisRow, query_name: queryName, query_text: queryText }),
+      });
+      if (resp) {
+        vtArea.innerHTML = _renderDeepAnalysis(resp);
+      }
+    } catch (err) {
+      vtArea.innerHTML = `<div class="vt-error">${esc(err.message)}</div>`;
+    }
+  }
+
+  function checkVirusTotal() { deepAnalyze(); }
+
+  function _defangUrl(url) {
+    return url.replace(/\./g, "[.]").replace(/http/g, "hxxp");
+  }
+
+  function _defangDomain(d) {
+    return d.replace(/\./g, "[.]");
+  }
+
+  function _renderDeepAnalysis(resp) {
+    const s1Base = (resp.s1_base_url || "").replace(/\/+$/, "");
+    let html = `<div class="deep-analysis">
+      <div class="deep-analysis-title">5-Step SOC Analyst Method</div>`;
+
+    // Section 1: Reason for Alert
+    const reasonText = resp.reason || "No context available.";
+    html += `<div class="deep-section">
+      <div class="deep-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="deep-section-num">1</span>
+        <span class="deep-section-title">Reason for Alert</span>
+        <span class="deep-section-toggle">&#9662;</span>
+      </div>
+      <div class="deep-section-body">
+        <p>${esc(reasonText)}</p>
+        <button class="btn btn-analyze" style="margin-top:10px;font-size:.72rem;padding:6px 14px" onclick="SQH.explainReason()">EXPLAIN</button>
+        <div id="explain-result"></div>
+      </div>
+    </div>`;
+    window._lastReasonText = reasonText;
+
+    // Section 2: Supporting Evidence
+    const ev = resp.evidence || {};
+    html += `<div class="deep-section">
+      <div class="deep-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="deep-section-num">2</span>
+        <span class="deep-section-title">Supporting Evidence</span>
+        <span class="deep-section-badge">${(ev.urls||[]).length + (ev.ips||[]).length + (ev.hashes||[]).length + (ev.domains||[]).length} indicators</span>
+        <span class="deep-section-toggle">&#9662;</span>
+      </div>
+      <div class="deep-section-body">`;
+
+    if (ev.urls && ev.urls.length) {
+      html += `<div class="evidence-group"><div class="evidence-label">URLs Extracted</div>`;
+      for (const u of ev.urls) html += `<div class="evidence-item mono">${esc(_defangUrl(u))}</div>`;
+      html += `</div>`;
+    }
+    if (ev.ips && ev.ips.length) {
+      html += `<div class="evidence-group"><div class="evidence-label">IP Addresses</div>`;
+      for (const ip of ev.ips) html += `<div class="evidence-item mono">${esc(ip)}</div>`;
+      html += `</div>`;
+    }
+    if (ev.domains && ev.domains.length) {
+      html += `<div class="evidence-group"><div class="evidence-label">Domains</div>`;
+      for (const d of ev.domains) html += `<div class="evidence-item mono">${esc(_defangDomain(d))}</div>`;
+      html += `</div>`;
+    }
+    if (ev.hashes && ev.hashes.length) {
+      html += `<div class="evidence-group"><div class="evidence-label">File Hashes</div>`;
+      for (const h of ev.hashes) html += `<div class="evidence-item mono">${esc(h)}</div>`;
+      html += `</div>`;
+    }
+    if (!ev.urls?.length && !ev.ips?.length && !ev.domains?.length && !ev.hashes?.length) {
+      html += `<div class="evidence-empty">No extractable indicators found in this event.</div>`;
+    }
+    html += `</div></div>`;
+
+    // Section 3: Analysis
+    const analysis = resp.analysis || {};
+    const row = _currentAnalysisRow || {};
+    html += `<div class="deep-section">
+      <div class="deep-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="deep-section-num">3</span>
+        <span class="deep-section-title">Analysis</span>
+        <span class="deep-section-toggle">&#9662;</span>
+      </div>
+      <div class="deep-section-body">`;
+
+    // Event context: User & Host info from SentinelOne
+    const userFields = [
+      ["User", row.user || row.UserName || row.userName || row.srcProcUser || ""],
+      ["User SID", row.userSid || row.srcProcUserSid || ""],
+      ["Logon Type", row.loginType || row.logonType || ""],
+    ];
+    const hostFields = [
+      ["Endpoint Name", row.agentComputerName || row.endpointName || row.EndpointName || ""],
+      ["Agent ID", row.agentId || row.agentUuid || ""],
+      ["Agent OS", row.agentOs || row.osType || row.agentOsType || ""],
+      ["Agent Version", row.agentVersion || ""],
+      ["Site Name", row.siteName || row.agentSiteName || ""],
+      ["Agent Domain", row.agentDomain || row.machineDomain || ""],
+      ["Agent IP", row.agentIp || ""],
+      ["Group Name", row.groupName || row.agentGroupName || ""],
+    ];
+    const processFields = [
+      ["Process", row.processName || row.ProcessName || ""],
+      ["PID", row.pid || row.processId || row.rpid || ""],
+      ["Command Line", row.processCmd || row.ProcessCmd || row.processCommandLine || ""],
+      ["Parent Process", row.parentProcessName || row.ParentProcessName || ""],
+      ["Parent PID", row.parentPid || row.parentProcessId || ""],
+      ["Process Path", row.processImagePath || row.srcProcImagePath || ""],
+      ["SHA1", row.processImageSha1Hash || row.ProcessImageSha1Hash || ""],
+      ["Integrity Level", row.integrityLevel || row.processIntegrityLevel || ""],
+      ["Process Start", row.processStartTime || row.createdAt || ""],
+    ];
+
+    const hasUserInfo = userFields.some(f => f[1]);
+    const hasHostInfo = hostFields.some(f => f[1]);
+    const hasProcessInfo = processFields.some(f => f[1]);
+
+    if (hasUserInfo || hasHostInfo || hasProcessInfo) {
+      html += `<div class="analysis-subsection"><div class="analysis-subsection-title">Event Context (User, Host & Process)</div><div style="padding:8px 12px">`;
+      if (hasHostInfo) {
+        html += `<div class="evidence-group"><div class="evidence-label">Host / Endpoint</div><div class="context-grid">`;
+        for (const [label, val] of hostFields) {
+          if (val) html += `<div class="context-field"><span class="context-label">${esc(label)}</span><span class="context-value">${esc(String(val))}</span></div>`;
+        }
+        html += `</div></div>`;
+      }
+      if (hasUserInfo) {
+        html += `<div class="evidence-group"><div class="evidence-label">User / Identity</div><div class="context-grid">`;
+        for (const [label, val] of userFields) {
+          if (val) html += `<div class="context-field"><span class="context-label">${esc(label)}</span><span class="context-value">${esc(String(val))}</span></div>`;
+        }
+        html += `</div></div>`;
+      }
+      if (hasProcessInfo) {
+        html += `<div class="evidence-group"><div class="evidence-label">Process Details</div><div class="context-grid">`;
+        for (const [label, val] of processFields) {
+          if (val) html += `<div class="context-field"><span class="context-label">${esc(label)}</span><span class="context-value mono">${esc(String(val).substring(0, 300))}</span></div>`;
+        }
+        html += `</div></div>`;
+      }
+      html += `</div></div>`;
+    }
+
+    // Recent S1 Alerts for this endpoint/user
+    if (analysis.s1_alerts && analysis.s1_alerts.length) {
+      html += `<div class="analysis-subsection"><div class="analysis-subsection-title">Recent Security Alerts (Last 90 Days)</div>`;
+      html += `<div style="padding:8px 12px"><table class="s1-alerts-table"><thead><tr><th>Date</th><th>Threat</th><th>Classification</th><th>Confidence</th><th>Status</th><th>Endpoint</th></tr></thead><tbody>`;
+      for (const a of analysis.s1_alerts) {
+        const dt = a.created_at ? new Date(a.created_at).toLocaleDateString() + " " + new Date(a.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "";
+        html += `<tr>
+          <td>${esc(dt)}</td>
+          <td>${esc(a.threat_name || "Unknown")}</td>
+          <td>${esc(a.classification || "")}</td>
+          <td>${esc(a.confidence || "")}</td>
+          <td>${esc(a.status || "")}</td>
+          <td>${esc(a.endpoint || "")}</td>
+        </tr>`;
+        if (a.mitre && a.mitre.length) {
+          html += `<tr><td colspan="6" style="font-size:11px;color:#8899aa;padding:2px 8px">MITRE: ${a.mitre.map(m => esc(m.technique ? m.technique + ' ' + (m.name||'') : (m.name||JSON.stringify(m)))).join(", ")}</td></tr>`;
+        }
+      }
+      html += `</tbody></table>`;
+      const epName = row.agentComputerName || row.endpointName || row.EndpointName || "";
+      if (s1Base && epName) {
+        html += `<a href="${s1Base}/#/incidents/threats?filter=${encodeURIComponent('computerName__contains=' + epName)}" target="_blank" class="s1-link" style="margin-top:8px">View All Threats for this Endpoint in SentinelOne &#8599;</a>`;
+      }
+      html += `</div></div>`;
+    } else if (analysis.s1_alerts !== undefined) {
+      html += `<div class="analysis-subsection"><div class="analysis-subsection-title">Recent Security Alerts (Last 90 Days)</div><div style="padding:8px 12px;color:#889">No alerts found for this endpoint in the last 90 days.</div></div>`;
+    }
+
+    // VirusTotal results
+    if (analysis.virustotal && analysis.virustotal.length) {
+      html += `<div class="analysis-subsection"><div class="analysis-subsection-title">VirusTotal</div>`;
+      for (const r of analysis.virustotal) {
+        const cls = r.verdict === "malicious" ? "verdict-bad" : r.verdict === "suspicious" ? "verdict-warn" : "verdict-ok";
+        const icon = r.verdict === "malicious" ? "&#10060;" : r.verdict === "suspicious" ? "&#9888;" : r.verdict === "clean" ? "&#9989;" : "&#8226;";
+        let extras = [];
+        if (r.detail) extras.push(r.detail);
+        if (r.country) extras.push("Country: " + r.country);
+        if (r.as_owner) extras.push("ASN: " + r.as_owner);
+        if (r.asn) extras.push("AS" + r.asn);
+        if (r.network) extras.push("Network: " + r.network);
+        if (r.name) extras.push("Name: " + r.name);
+        if (r.file_type) extras.push("Type: " + r.file_type);
+        if (r.size) extras.push("Size: " + (r.size > 1048576 ? (r.size/1048576).toFixed(1) + " MB" : (r.size/1024).toFixed(1) + " KB"));
+        if (r.signature) extras.push("Signed: " + r.signature);
+        if (r.first_seen) extras.push("First seen: " + new Date(r.first_seen * 1000).toISOString().split("T")[0]);
+        if (r.last_seen) extras.push("Last analyzed: " + new Date(r.last_seen * 1000).toISOString().split("T")[0]);
+        if (r.tags && r.tags.length) extras.push("Tags: " + r.tags.join(", "));
+        if (r.reputation !== undefined && r.type === "domain") extras.push("Reputation score: " + r.reputation);
+        if (r.registrar) extras.push("Registrar: " + r.registrar);
+        if (r.creation_date) extras.push("Domain created: " + new Date(r.creation_date * 1000).toISOString().split("T")[0]);
+        if (r.categories && Object.keys(r.categories).length) extras.push("Categories: " + Object.values(r.categories).join(", "));
+        if (r.sha256) extras.push("SHA256: " + r.sha256);
+        if (r.continent) extras.push("Continent: " + r.continent);
+
+        html += `<div class="analysis-result ${cls}">
+          <span class="ar-icon">${icon}</span>
+          <div class="ar-info">
+            <span class="ar-type">${esc(r.type)}</span>
+            <span class="ar-value">${esc(_defangDomain(r.value))}</span>
+            ${extras.map(e => `<span class="ar-detail">${esc(e)}</span>`).join("")}
+            ${r.whois_snippet ? `<details class="ar-whois-details"><summary>WHOIS snippet</summary><pre class="ar-whois-pre">${esc(r.whois_snippet)}</pre></details>` : ""}
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // APIVoid IP reputation
+    if (analysis.ip_reputation && analysis.ip_reputation.length) {
+      html += `<div class="analysis-subsection"><div class="analysis-subsection-title">IP Reputation (IPVoid)</div>`;
+      for (const r of analysis.ip_reputation) {
+        if (r.error) {
+          html += `<div class="analysis-result verdict-unknown"><span class="ar-icon">&#8226;</span><div class="ar-info"><span class="ar-value">${esc(r.value)}</span><span class="ar-detail">Error: ${esc(r.error)}</span></div></div>`;
+          continue;
+        }
+        const cls = r.detections > 3 ? "verdict-bad" : r.detections > 0 ? "verdict-warn" : "verdict-ok";
+        const icon = r.detections > 3 ? "&#10060;" : r.detections > 0 ? "&#9888;" : "&#9989;";
+        let extras = [];
+        extras.push(`Blacklists: ${r.detections}/${r.engines} (${r.detection_rate})`);
+        if (r.country) extras.push("Country: " + r.country);
+        if (r.isp) extras.push("ISP: " + r.isp);
+        if (r.reverse_dns) extras.push("Reverse DNS: " + r.reverse_dns);
+        if (r.is_tor) extras.push("TOR exit node: Yes");
+        if (r.is_vpn) extras.push("VPN: Yes");
+        if (r.is_proxy) extras.push("Proxy: Yes");
+        html += `<div class="analysis-result ${cls}">
+          <span class="ar-icon">${icon}</span>
+          <div class="ar-info">
+            <span class="ar-type">IP</span>
+            <span class="ar-value">${esc(r.value)}</span>
+            ${extras.map(e => `<span class="ar-detail">${esc(e)}</span>`).join("")}
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // APIVoid Domain/URL reputation
+    if (analysis.url_reputation && analysis.url_reputation.length) {
+      html += `<div class="analysis-subsection"><div class="analysis-subsection-title">Domain Reputation (URLVoid)</div>`;
+      for (const r of analysis.url_reputation) {
+        if (r.error) {
+          html += `<div class="analysis-result verdict-unknown"><span class="ar-icon">&#8226;</span><div class="ar-info"><span class="ar-value">${esc(_defangDomain(r.value))}</span><span class="ar-detail">Error: ${esc(r.error)}</span></div></div>`;
+          continue;
+        }
+        const cls = r.detections > 3 ? "verdict-bad" : r.detections > 0 ? "verdict-warn" : "verdict-ok";
+        const icon = r.detections > 3 ? "&#10060;" : r.detections > 0 ? "&#9888;" : "&#9989;";
+        let extras = [];
+        extras.push(`Blacklists: ${r.detections}/${r.engines} (${r.detection_rate})`);
+        if (r.risk_score) extras.push("Risk score: " + r.risk_score + "/100");
+        if (r.ip) extras.push("Hosted IP: " + r.ip);
+        if (r.country) extras.push("Country: " + r.country);
+        html += `<div class="analysis-result ${cls}">
+          <span class="ar-icon">${icon}</span>
+          <div class="ar-info">
+            <span class="ar-type">Domain</span>
+            <span class="ar-value">${esc(_defangDomain(r.value))}</span>
+            ${extras.map(e => `<span class="ar-detail">${esc(e)}</span>`).join("")}
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // WHOIS results
+    if (analysis.whois && analysis.whois.length) {
+      html += `<div class="analysis-subsection"><div class="analysis-subsection-title">WHOIS / Domain Birthday</div>`;
+      for (const w of analysis.whois) {
+        if (w.error) {
+          html += `<div class="whois-card"><div class="whois-domain">${esc(_defangDomain(w.value))}</div><div class="whois-error">Lookup failed: ${esc(w.error)}</div></div>`;
+          continue;
+        }
+        html += `<div class="whois-card">
+          <div class="whois-domain">${esc(_defangDomain(w.value))}</div>
+          <div class="whois-grid">
+            <div class="whois-field"><span class="whois-label">Birthday (Created)</span><span class="whois-value ${w.creation_date ? "" : "whois-na"}">${esc(w.creation_date || "N/A")}</span></div>
+            <div class="whois-field"><span class="whois-label">Expires</span><span class="whois-value">${esc(w.expiration_date || "N/A")}</span></div>
+            <div class="whois-field"><span class="whois-label">Registrar</span><span class="whois-value">${esc(w.registrar || "N/A")}</span></div>
+            <div class="whois-field"><span class="whois-label">Org / Country</span><span class="whois-value">${esc((w.org || "") + (w.registrant_country ? " (" + w.registrant_country + ")" : "") || "N/A")}</span></div>
+          </div>
+          ${w.name_servers && w.name_servers.length ? `<div class="whois-ns">NS: ${w.name_servers.map(n => esc(_defangDomain(n))).join(", ")}</div>` : ""}
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    if (!analysis.virustotal?.length && !analysis.ip_reputation?.length && !analysis.url_reputation?.length && !analysis.whois?.length) {
+      html += `<div class="analysis-empty">No external intelligence data retrieved. Ensure API keys are configured in Administration.</div>`;
+    }
+
+    html += `</div></div>`;
+
+    // Section 4: Conclusion
+    const conclusion = resp.conclusion || {};
+    const verdictCls = conclusion.verdict === "MALICIOUS" ? "verdict-bad" : conclusion.verdict === "SUSPICIOUS" ? "verdict-warn" : conclusion.verdict === "NO_INDICATORS" ? "verdict-unknown" : "verdict-ok";
+    html += `<div class="deep-section">
+      <div class="deep-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="deep-section-num">4</span>
+        <span class="deep-section-title">Conclusion</span>
+        <span class="deep-verdict-badge ${verdictCls}">${esc(conclusion.verdict || "UNKNOWN")}</span>
+        <span class="deep-section-toggle">&#9662;</span>
+      </div>
+      <div class="deep-section-body"><p>${esc(conclusion.summary || "")}</p></div>
+    </div>`;
+
+    // Section 5: Next Steps
+    html += `<div class="deep-section">
+      <div class="deep-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="deep-section-num">5</span>
+        <span class="deep-section-title">Next Steps</span>
+        <span class="deep-section-toggle">&#9662;</span>
+      </div>
+      <div class="deep-section-body"><p>${esc(resp.next_steps || "No specific actions recommended.")}</p></div>
+    </div>`;
+
+    html += `</div>`;
+    return html;
+  }
+
+  async function explainReason() {
+    const el = document.getElementById("explain-result");
+    if (!el) return;
+    const row = _currentAnalysisRow || {};
+    const reasonText = window._lastReasonText || "";
+
+    el.innerHTML = `<div class="deep-analyze-loading" style="padding:10px"><div class="spinner"></div><p>Decoding and explaining...</p></div>`;
+
+    const cmd = row.processCmd || row.ProcessCmd || row.processCommandLine || "";
+    const proc = row.processName || row.ProcessName || "";
+    const parent = row.parentProcessName || row.ParentProcessName || "";
+
+    let fullContext = reasonText + "\n\n";
+    if (cmd) fullContext += "Full command line:\n" + cmd + "\n\n";
+    if (proc) fullContext += "Process: " + proc + "\n";
+    if (parent) fullContext += "Parent process: " + parent + "\n";
+
+    const prompt = `You are explaining what this event is doing to a security analyst. Do NOT include any ASSESSMENT, CONTEXT, or RECOMMENDATION sections. Do NOT say "Suspicious", "Benign", or "Requires Investigation". Just explain clearly and technically what is happening.
+
+CRITICAL REQUIREMENT: The command line contains a base64 encoded command (the -encodedcommand or -enc flag in PowerShell means the following string is base64 encoded UTF-16LE). You MUST:
+1. Take the base64 string that follows -encodedcommand/-enc
+2. Decode it from base64 (it is UTF-16LE encoded text)
+3. Show the FULL decoded plaintext command
+4. Explain line by line what the decoded command does
+
+Also break down every flag and argument in the original command. Explain what each part does individually and what the overall activity is accomplishing. If there are file paths, explain their significance.
+
+Provide only the explanation with the decoded command shown in full:\n\n${fullContext}`;
+
+    try {
+      const resp = await api("/api/ai/analyze", {
+        method: "POST",
+        body: JSON.stringify({
+          row_data: row,
+          query_name: _currentQueryName || "",
+          query_text: prompt,
+        }),
+      });
+      if (resp && resp.analysis) {
+        el.innerHTML = `<div class="ai-response" style="margin-top:10px;font-size:.82rem;line-height:1.6">${_formatAIResponse(resp.analysis)}</div>`;
+      }
+    } catch (err) {
+      el.innerHTML = `<div class="vt-error">${esc(err.message)}</div>`;
+    }
+  }
+
+  function _buildRowSummary(row) {
+    if (!row) return "";
+    const keys = ["processName", "ProcessName", "agentComputerName", "endpointName", "EndpointName", "processCmd", "ProcessCmd", "user", "UserName", "userName", "parentProcessName", "ParentProcessName"];
+    const shown = [];
+    for (const k of keys) {
+      if (row[k] && shown.length < 4) {
+        shown.push(`<span class="ai-field"><strong>${esc(k)}:</strong> ${esc(String(row[k]).substring(0, 120))}</span>`);
+      }
+    }
+    return shown.length ? `<div class="ai-event-fields">${shown.join("")}</div>` : "";
+  }
+
+  function _formatAIResponse(text) {
+    if (!text) return "";
+    let html = esc(text);
+    html = html.replace(/^(#{1,3})\s+(.+)$/gm, (_, h, t) => `<h${h.length + 2} class="ai-heading">${t}</h${h.length + 2}>`);
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
+    html = html.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
+    html = html.replace(/(ASSESSMENT|EXPLANATION|CONTEXT|RECOMMENDATION|Suspicious|Benign|Requires Investigation)/g, '<span class="ai-keyword">$1</span>');
+    html = html.replace(/\n\n/g, "</p><p>");
+    html = html.replace(/\n/g, "<br>");
+    return `<p>${html}</p>`;
+  }
+
+  // ── "Let's Talk About This" - AI Summary of Full Dataset ──
+  async function letsTalkAboutThis() {
+    if (!currentHistoryId) { toast("No results to analyze", "error"); return; }
+
+    const queryName = _currentQueryName || "Unknown Query";
+    const totalCount = _totalCount || currentResults.length;
+
+    _showLetsTalkPanel(queryName, totalCount, null, null, null, null, true);
+
+    try {
+      const resp = await api(`/api/ai/summarize/${currentHistoryId}`, { method: "POST" });
+      if (resp) {
+        _showLetsTalkPanel(queryName, resp.total_count || totalCount, resp.analysis, resp.model, resp.tokens_used, null, false, resp.action_filters);
+      }
+    } catch (err) {
+      _showLetsTalkPanel(queryName, totalCount, null, null, null, err.message);
+    }
+  }
+
+  let _lastActionFilters = [];
+
+  function _showLetsTalkPanel(queryName, totalCount, analysis, model, tokens, error, loading, actionFilters) {
+    const existing = document.getElementById("ai-analysis-panel");
+    if (existing) existing.remove();
+
+    _lastActionFilters = actionFilters || [];
+
+    const overlay = document.createElement("div");
+    overlay.id = "ai-analysis-panel";
+    overlay.className = "dialog-overlay";
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    let content = "";
+    if (loading) {
+      content = `<div class="ai-loading"><div class="spinner"></div><p>Analyzing ${totalCount.toLocaleString()} events with AI...</p></div>`;
+    } else if (error) {
+      content = `<div class="ai-error"><p>${esc(error)}</p></div>`;
+    } else {
+      const formatted = _formatAIResponse(analysis);
+      let goToBtn = "";
+      if (_lastActionFilters.length) {
+        const filters = _lastActionFilters.map(f => f.toLowerCase());
+        const matchCount = currentResults.filter(row => {
+          const rowStr = Object.values(row).join(" ").toLowerCase();
+          return filters.some(f => rowStr.includes(f));
+        }).length;
+        goToBtn = matchCount > 0
+          ? `<button class="btn btn-goto" onclick="SQH.goToActionItems()">GO TO FLAGGED EVENTS (${matchCount})</button>`
+          : `<div class="ai-all-clear">No matching events found in current view</div>`;
+      } else {
+        goToBtn = `<div class="ai-all-clear">No events flagged for action</div>`;
+      }
+      content = `<div class="ai-response">${formatted}</div>
+        <div class="ai-action-bar">${goToBtn}</div>
+        <div class="ai-meta">Model: ${esc(model)} &middot; ${tokens} tokens</div>`;
+    }
+
+    overlay.innerHTML = `
+      <div class="ai-analysis-box">
+        <div class="ai-analysis-header">
+          <h3>AI Analysis</h3>
+          <button class="ai-close-btn" onclick="document.getElementById('ai-analysis-panel').remove()">&times;</button>
+        </div>
+        <div class="ai-event-summary">
+          <div class="ai-event-label">Query: <strong>${esc(queryName)}</strong> &middot; ${totalCount.toLocaleString()} events analyzed</div>
+        </div>
+        <div class="ai-analysis-body">
+          ${content}
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  function goToActionItems() {
+    if (!_lastActionFilters.length) return;
+    // Close the AI panel
+    const panel = document.getElementById("ai-analysis-panel");
+    if (panel) panel.remove();
+
+    // Filter results to only show events matching action filters
+    const filters = _lastActionFilters.map(f => f.toLowerCase());
+    _filteredData = currentResults.filter(row => {
+      const rowStr = Object.values(row).join(" ").toLowerCase();
+      return filters.some(f => rowStr.includes(f));
+    });
+
+    // Rebuild table with filtered data and highlight
+    const visCols = _getVisibleCols();
+    fillResultsBody(visCols, _filteredData);
+
+    // Update count display
+    const countEl = document.querySelector(".results-count");
+    if (countEl) countEl.textContent = _filteredData.length;
+
+    // Add highlight class to all visible rows
+    setTimeout(() => {
+      const tbody = document.getElementById("results-tbody");
+      if (tbody) {
+        tbody.classList.add("ai-highlighted");
+      }
+    }, 100);
+
+    // Show a banner indicating we're in filtered mode
+    const wrap = document.getElementById("results-table-wrap");
+    if (wrap) {
+      const banner = document.createElement("div");
+      banner.id = "ai-filter-banner";
+      banner.className = "ai-filter-banner";
+      banner.innerHTML = `<span>Showing ${_filteredData.length} flagged events</span><button class="btn btn-sm" onclick="SQH.clearAIFilter()">Show All</button>`;
+      wrap.parentElement.insertBefore(banner, wrap);
+    }
+
+    toast(`Filtered to ${_filteredData.length} flagged events`, "info");
+  }
+
+  function clearAIFilter() {
+    _filteredData = null;
+    const banner = document.getElementById("ai-filter-banner");
+    if (banner) banner.remove();
+    const tbody = document.getElementById("results-tbody");
+    if (tbody) tbody.classList.remove("ai-highlighted");
+    _rebuildTable();
   }
 
   function toggleColumnPicker(e) {
@@ -643,10 +1435,53 @@ const SQH = (() => {
 
   function toggleExport(e) { e.stopPropagation(); document.getElementById("export-menu").classList.toggle("show"); }
 
-  function exportData(fmt) {
+  function exportData(fmt, scope) {
     document.getElementById("export-menu").classList.remove("show");
-    if (!currentHistoryId) { toast("No results to export", "error"); return; }
-    window.open(`/api/history/${currentHistoryId}/export/${fmt}`, "_blank");
+    if (!currentHistoryId && scope === "all") { toast("No results to export", "error"); return; }
+
+    if (scope === "all") {
+      window.open(`/api/history/${currentHistoryId}/export/${fmt}`, "_blank");
+    } else {
+      // Export only what's currently showing (filtered/displayed data)
+      const data = _filteredData || currentResults;
+      if (!data.length) { toast("No results showing to export", "error"); return; }
+      const visCols = _getVisibleCols();
+
+      if (fmt === "csv") {
+        let csv = visCols.join(",") + "\n";
+        for (const row of data) {
+          csv += visCols.map(c => {
+            let v = row[c];
+            if (v === null || v === undefined) v = "";
+            v = String(v).replace(/"/g, '""');
+            return `"${v}"`;
+          }).join(",") + "\n";
+        }
+        _downloadFile(csv, `${_currentQueryName || "export"}_showing.csv`, "text/csv");
+      } else if (fmt === "json") {
+        const exported = data.map(row => {
+          const obj = {};
+          for (const c of visCols) obj[c] = row[c] ?? "";
+          return obj;
+        });
+        _downloadFile(JSON.stringify(exported, null, 2), `${_currentQueryName || "export"}_showing.json`, "application/json");
+      } else if (fmt === "pdf") {
+        toast("PDF export for filtered view — use Export All for PDF", "info");
+        window.open(`/api/history/${currentHistoryId}/export/pdf`, "_blank");
+      }
+    }
+  }
+
+  function _downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   async function shareResults() {
@@ -1562,7 +2397,7 @@ const SQH = (() => {
 
   function renderWizardContent(el) {
     if (!el) el = document.getElementById("admin-content");
-    const steps = ["S1 API", "Storage", "Sessions", "Passwords", "Retention"];
+    const steps = ["S1 API", "Storage", "Sessions", "Passwords", "Retention", "AI Analysis"];
     const stepsHtml = steps.map((s, i) => {
       const n = i + 1;
       const cls = n === wizardStep ? "active" : n < wizardStep ? "completed" : "";
@@ -1603,7 +2438,21 @@ const SQH = (() => {
         <div class="form-group"><label>Retention Period</label><select id="wiz-retention" class="w-full" style="width:200px">
           ${[["0","No auto-expiration"],["30","30 days"],["90","90 days"],["180","180 days"],["365","365 days"]].map(([v,l]) => `<option value="${v}" ${c.retention_days === v ? "selected" : ""}>${l}</option>`).join("")}
         </select></div>
-        <div class="flex justify-between mt-lg"><button class="btn" onclick="SQH.wizardSave(4)">&larr; Back</button><button class="btn btn-success" onclick="SQH.wizardFinish()">Save All Settings</button></div>`;
+        <div class="flex justify-between mt-lg"><button class="btn" onclick="SQH.wizardSave(4)">&larr; Back</button><button class="btn btn-primary" onclick="SQH.wizardSave(6)">Next: AI Analysis &rarr;</button></div>`;
+    } else if (wizardStep === 6) {
+      body = `<h3 style="font-size:1rem;margin-bottom:16px">AI Analysis & Threat Intel</h3>
+        <p class="text-sm text-muted" style="margin-bottom:14px">Enable AI-powered threat analysis and VirusTotal indicator checks on query results.</p>
+        <div class="form-group"><label>OpenAI API Key</label><input type="password" id="wiz-openai-key" value="${esc(c.openai_api_key || "")}" class="w-full" placeholder="sk-..."></div>
+        <div class="form-group"><label>Model</label><select id="wiz-openai-model" class="w-full" style="width:200px">
+          ${[["gpt-4o","GPT-4o (recommended)"],["gpt-4o-mini","GPT-4o Mini (faster/cheaper)"],["gpt-4-turbo","GPT-4 Turbo"]].map(([v,l]) => `<option value="${v}" ${(c.openai_model || "gpt-4o") === v ? "selected" : ""}>${l}</option>`).join("")}
+        </select></div>
+        <hr style="border-color:var(--border);margin:16px 0">
+        <div class="form-group"><label>VirusTotal API Key</label><input type="password" id="wiz-vt-key" value="${esc(c.virustotal_api_key || "")}" class="w-full" placeholder="Enter your VT API key..."></div>
+        <p class="text-sm text-muted">Get a free key at <a href="https://www.virustotal.com/gui/my-apikey" target="_blank" style="color:var(--accent)">virustotal.com</a>. Used to check file hashes, IPs, and domains.</p>
+        <hr style="border-color:var(--border);margin:16px 0">
+        <div class="form-group"><label>APIVoid API Key <span class="text-muted">(optional)</span></label><input type="password" id="wiz-apivoid-key" value="${esc(c.apivoid_api_key || "")}" class="w-full" placeholder="Enter your APIVoid key..."></div>
+        <p class="text-sm text-muted">Covers IPVoid + URLVoid reputation checks. Get a key at <a href="https://www.apivoid.com/" target="_blank" style="color:var(--accent)">apivoid.com</a>. Free tier available.</p>
+        <div class="flex justify-between mt-lg"><button class="btn" onclick="SQH.wizardSave(5)">&larr; Back</button><button class="btn btn-success" onclick="SQH.wizardFinish()">Save All Settings</button></div>`;
     }
 
     el.innerHTML = `<h2 style="font-size:1.25rem;margin-bottom:4px">Setup Wizard</h2><p class="text-sm text-muted mb-md">Configure core application settings</p><div class="wizard-steps">${stepsHtml}</div><div class="wizard-content">${body}</div>`;
@@ -1620,6 +2469,7 @@ const SQH = (() => {
       wizardConfig.pw_require_upper = gcb("wiz-pw-upper"); wizardConfig.pw_require_lower = gcb("wiz-pw-lower");
       wizardConfig.pw_require_number = gcb("wiz-pw-num"); wizardConfig.pw_require_special = gcb("wiz-pw-spec");
     } else if (s === 5) { wizardConfig.retention_days = gv("wiz-retention"); }
+    else if (s === 6) { wizardConfig.openai_api_key = gv("wiz-openai-key"); wizardConfig.openai_model = gv("wiz-openai-model"); wizardConfig.virustotal_api_key = gv("wiz-vt-key"); wizardConfig.apivoid_api_key = gv("wiz-apivoid-key"); }
   }
 
   function wizardSave(next) { collectWizardValues(); wizardStep = next; renderWizardContent(); }
@@ -1661,6 +2511,7 @@ const SQH = (() => {
     document.getElementById("history-status").addEventListener("change", loadHistory);
     document.getElementById("history-search").addEventListener("input", loadHistory);
 
+    _initContextMenu();
     checkAuth();
   }
 
@@ -1668,13 +2519,14 @@ const SQH = (() => {
 
   return {
     nav, logout, filterQueries, selectQuery, runQuery, cancelQuery, setDateRange, setGlobalTime,
-    sortResults, filterResults, toggleColumnPicker, toggleColumn, resetColumns,
+    sortResults, filterResults, toggleColumnPicker, toggleColumn, resetColumns, _startColResize,
     toggleExport, exportData, shareResults, viewHistoryResults, loadMoreResults,
     refreshDashboardNow, drillDown, closeDrillDown, toggleToolsPanel, addAITool, removeAITool, adminTab,
     showCreateUserModal, createUser, showResetPwModal, resetPassword, toggleUserStatus,
     showCreateFolderModal, createFolder, showRenameFolderModal, renameFolder, deleteFolder,
     moveFolderUp, moveFolderDown, moveQueryFolder,
     showCreateQueryModal, createQuery, showEditQueryModal, updateQuery, deleteQuery,
-    bulkDelete, wizardSave, wizardFinish, closeModal,
+    bulkDelete, wizardSave, wizardFinish, closeModal, analyzeRow, letsTalkAboutThis,
+    goToActionItems, clearAIFilter, checkVirusTotal, deepAnalyze, deepAnalyzeRow, explainReason,
   };
 })();

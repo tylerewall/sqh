@@ -245,6 +245,6 @@ def build_ai_s1ql(tools: list[dict] | None = None) -> str:
     if tools is None:
         tools = get_ai_tools()
     if not tools:
-        return 'ObjectType = "process"'
+        return 'EventType = "Process Creation"'
     pattern = "|".join(t["keyword"] for t in tools)
-    return f'ObjectType = "process" AND (ProcessName RegExp "{pattern}" OR ProcessCmd RegExp "{pattern}")'
+    return f'EventType = "Process Creation" AND (ProcessName RegExp "{pattern}" OR ProcessCmd RegExp "{pattern}")'

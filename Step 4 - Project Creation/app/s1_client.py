@@ -122,8 +122,8 @@ TARGET_SLICES = 4
 async def run_dv_query(query_string: str, from_date: str = "", to_date: str = "", timeout: int = 300, history_id: int = 0, deduplicate: bool = False, on_first_page=None) -> dict:
     """
     Auto-detects query type (PowerQuery vs standard DV) and routes accordingly.
-    Stops at 20K results and raises an error — too many results is not useful.
-    on_first_page: optional async callback(events_list) called after each page arrives.
+    If a single query hits the 20K S1 cap, automatically time-slices to fetch the full dataset.
+    Returns a 'capped' flag if total exceeds 20K so the UI can show a warning.
     """
     if _is_power_query(query_string):
         return await _run_power_query(query_string, from_date, to_date, timeout, history_id)
@@ -132,13 +132,12 @@ async def run_dv_query(query_string: str, from_date: str = "", to_date: str = ""
 
     result = await _run_dv_query(query_string, from_date, to_date, timeout, history_id, on_first_page=on_first_page)
 
+    # If S1 capped at 20K, time-slice to get the full dataset
     if len(result.get("data", [])) >= DV_ACCOUNT_CAP:
-        logger.warning("Query hit %d-event cap — stopping (too many results)", DV_ACCOUNT_CAP)
-        raise ValueError(
-            f"Query returned {DV_ACCOUNT_CAP:,}+ results which is too many to be useful. "
-            "Narrow your search by using a shorter time range, adding an EndpointName or UserName filter, "
-            "or using more specific search terms."
-        )
+        logger.info("Single query hit %d-event cap — time-slicing to get full dataset", DV_ACCOUNT_CAP)
+        set_progress(history_id, 35, "Fetching full dataset (time-slicing)...")
+        result = await _run_dv_query_sliced(query_string, from_date, to_date, timeout, history_id)
+        result["capped"] = True
 
     if deduplicate and result.get("data"):
         raw_count = len(result["data"])
@@ -321,7 +320,7 @@ async def _run_dv_query(query_string: str, from_date: str, to_date: str, timeout
             raise ValueError(f"S1 init-query did not return a queryId: {resp.text}")
 
         logger.info("S1 DV query initiated: queryId=%s", query_id)
-        set_progress(history_id, 5, "Query submitted to SentinelOne")
+        set_progress(history_id, 3, "Query submitted to SentinelOne")
 
         status_url = DEEP_VISIBILITY_STATUS.format(version=version)
         max_polls = 300
@@ -337,9 +336,10 @@ async def _run_dv_query(query_string: str, from_date: str, to_date: str, timeout
             status_data = status_resp.json().get("data", {})
             state = status_data.get("responseState", "")
             progress_pct = status_data.get("progressStatus", 0)
-            set_progress(history_id, max(5, min(int(progress_pct * 0.8), 80)), f"S1 processing ({int(progress_pct)}%)")
+            # S1 processing = 0-30% of our progress bar
+            set_progress(history_id, max(3, min(int(progress_pct * 0.3), 30)), f"S1 processing ({int(progress_pct)}%)")
             if state == "FINISHED":
-                set_progress(history_id, 80, "Fetching results")
+                set_progress(history_id, 30, "Fetching results...")
                 logger.info("S1 DV query FINISHED after %d polls (%.1fs)", attempt + 1, time.time() - t0)
                 break
             if state == "FAILED":
@@ -353,6 +353,8 @@ async def _run_dv_query(query_string: str, from_date: str, to_date: str, timeout
         all_events = []
         cursor = None
         page_num = 0
+        # Max 20 pages (20K events / 1000 per page), progress 30-95%
+        max_pages = 20
 
         while True:
             params = {"queryId": query_id, "limit": 1000}
@@ -369,8 +371,9 @@ async def _run_dv_query(query_string: str, from_date: str, to_date: str, timeout
             page_events = body.get("data", [])
             all_events.extend(page_events)
             page_num += 1
-            fetch_pct = 80 + min(18, page_num)
-            set_progress(history_id, fetch_pct, f"Fetching results ({len(all_events)} events)")
+            # Fetching = 30-95% of progress bar, proportional to pages fetched
+            fetch_pct = 30 + int((page_num / max_pages) * 65)
+            set_progress(history_id, min(fetch_pct, 95), f"Fetching results ({len(all_events):,} events)")
             if on_first_page and page_events:
                 try:
                     await on_first_page(all_events)

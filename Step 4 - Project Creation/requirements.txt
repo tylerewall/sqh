@@ -7,3 +7,4 @@ httpx>=0.28
 orjson>=3.10
 python-multipart>=0.0.12
 reportlab>=4.2
+python-whois>=0.9
